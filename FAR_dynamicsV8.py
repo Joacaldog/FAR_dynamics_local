@@ -326,27 +326,28 @@ def table_generator():
         for ligand_folder in next(os.walk("."))[1]:
             for receptor_folder in next(os.walk(ligand_folder))[1]:
                 ligand_name = ligand_folder.replace("run_", "")
+                ligand_number = int(ligand_name.split("_")[-1])
                 receptor_name = receptor_folder.replace("run_", "")
                 try:
                     file = f'{ligand_folder}/{receptor_folder}/FAR_results/snapshot_statistics.out'
                     with open(file) as io:
                         line = io.readlines()[-1].strip()
                         energy_value = line.split()[1]
-                        energy_patch = float(energy_value), ligand_name, receptor_name
+                        energy_patch = float(energy_value), ligand_name, receptor_name, ligand_number
                         energy_patch_list.append(energy_patch)
                 except:
                     outf.write(f'{ligand_name}\t{receptor_name}\n')
                     continue
 
-    sorted_list = sorted(energy_patch_list,key=itemgetter(0))
+    sorted_list = sorted(energy_patch_list,key=itemgetter(3))
     if len(sorted_list) >= 1:
         with open("FAR_results.tsv", "w") as outfile:
             outfile.write('AffinityBindingPred(kcal/mol)\tLigand\tReceptor\n')
             for binding_data in sorted_list:
                 energy_value = binding_data[0]
-                ligand_name = binding_data[1]
+                ligand_number = binding_data[-1]
                 receptor_name = binding_data[2]
-                output = f'{energy_value}\t{ligand_name}\t{receptor_name}\n'
+                output = f'{energy_value}\t{ligand_number}\t{receptor_name}\n'
                 outfile.write(output)
 
 if __name__ == '__main__':
