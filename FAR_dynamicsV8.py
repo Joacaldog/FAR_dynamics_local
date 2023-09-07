@@ -352,7 +352,7 @@ def table_generator():
 if __name__ == '__main__':
     gpu_ids = list(range(range_GPU_S,range_GPU_E))
     initial_path = os.getcwd()
-    session_name = f'run_{ligand.replace(".sdf", "")}'
+    session_name = f'{initial_path}/run_{ligand.replace(".sdf", "")}'
     if not os.path.exists(session_name):
         os.mkdir(session_name)
     os.chdir(session_name)
@@ -384,5 +384,5 @@ if __name__ == '__main__':
             receptor_list = [receptor]
             with multiprocessing.Pool(processes=threads) as pool:
                 pool.starmap(run_dynamics, [(f'{initial_path}/{receptor_file}', gpu_ids[i % len(gpu_ids)]) for i, receptor_file in enumerate(receptor_list)])
-    
+    os.chdir(session_name)
     table_generator()
