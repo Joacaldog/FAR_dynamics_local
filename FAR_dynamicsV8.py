@@ -306,12 +306,10 @@ def extract_SDF(ligand):
             if '$$$$' in line:
                 indexes.append(idx)
 
-        pose_num = 1
         for i in range(len(indexes)):
             start = 0 if i == 0 else indexes[i - 1] + 1
             end = indexes[i]
-            output_file = f'pose_{pose_num}.sdf'
-            pose_num += 1
+            output_file = f'{line_list[start].replace("|", "_").strip()}.sdf'
             with open(output_file, "w") as of:
                 data_list = line_list[start:end + 1]
                 for line in data_list:
