@@ -456,12 +456,12 @@ if __name__ == '__main__':
         receptor_list = [f'{receptor}/{receptor_file}' for receptor_file in receptor_list]
         with multiprocessing.Pool(processes=threads) as pool:
             pool.map(prepare_receptor, receptor_list)
-        if len(receptor_list) < len(ligand_name_list):
+        if len(receptor_list) >= len(ligand_name_list):
             gpu_cycle = itertools.cycle(gpu_ids)
             with multiprocessing.Pool(processes=threads) as pool:
                 args = [(session_dir, receptor_file, ligand_name, next(gpu_cycle)) for ligand_name in ligand_name_list for receptor_file in receptor_list]
                 pool.starmap(run_dynamics_oneReceptor, args)
-        if len(receptor_list) >= len(ligand_name_list):
+        if len(receptor_list) < len(ligand_name_list):
             gpu_cycle = itertools.cycle(gpu_ids)
             with multiprocessing.Pool(processes=threads) as pool:
                 args = [(session_dir, receptor_file, ligand_name, next(gpu_cycle)) for receptor_file in receptor_list for ligand_name in ligand_name_list]
