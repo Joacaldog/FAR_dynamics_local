@@ -34,12 +34,13 @@ range_GPU = args.GPU_range
 in_folder = os.path.abspath(args.in_folder)
 range_GPU_S = int(range_GPU.split("-")[0])
 range_GPU_E = int(range_GPU.split("-")[1])
-cofactor_folder = os.path.abspath(args.cofactor)
+cofactor_folder = args.cofactor
 prefix_cofactor = args.cofactor_prefix
 prod = args.prod
 threads = args.threads
 
 if cofactor_folder:
+    cofactor_folder = os.path.abspath(cofactor_folder)
     if prefix_cofactor == None and os.path.isdir(cofactor_folder):
         parser.error(f"if you provided a cofactor's folder you must enter a prefix that will be used to find the files (e.g.: -cop SAM_ ---will-find--> SAM_receptorName.sdf)")
 
