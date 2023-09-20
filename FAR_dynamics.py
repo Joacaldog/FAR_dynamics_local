@@ -327,8 +327,8 @@ def run_dynamics(session_dir, receptor_file, ligand_name, gpu_num):
     os.chdir(receptor_folder)
     os.system(f"cp ../lig.* .")
     if ligand_type:
-        os.system(f"cp {in_folder}/cofactor/*ligand* .")
         if cofactor_folder != None:
+            os.system(f"cp {in_folder}/cofactor/*ligand* .")
             print(f'---------------------------------------\nPreparing complex with cofactor...')
             cmd_leap = "tleap -s -f leap_commands_ligand_cofactor_prot.in > leap_lig_cofactor_prot.out"
             os.system(cmd_leap)
@@ -339,8 +339,8 @@ def run_dynamics(session_dir, receptor_file, ligand_name, gpu_num):
             os.system(cmd_leap)
             print('Done')
     if peptide_type:
-        os.system(f"cp {in_folder}/cofactor/*peptide* .")
         if cofactor_folder != None:
+            os.system(f"cp {in_folder}/cofactor/*peptide* .")
             print(f'---------------------------------------\nPreparing complex with cofactor...')
             cmd_leap = "tleap -s -f leap_commands_peptide_cofactor_prot.in > leap_pep_cofactor_prot.out"
             os.system(cmd_leap)
