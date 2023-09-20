@@ -12,7 +12,7 @@ parser = argparse.ArgumentParser(description=program_description)
 parser.add_argument("-l", "--ligand", type=str,
                     help="Ligand file in SDF format", nargs='?')
 parser.add_argument("-p", "--peptide", type=str,
-                    help="Peptide file in SDF format", nargs='?')
+                    help="Peptide file in PDB or SDF format", nargs='?')
 parser.add_argument("-r", "--receptor", type=str,
                     help="Receptor file in PDB format or folder containing multiple receptors", required=True)
 parser.add_argument("-GPU", "--GPU_range", type=str,
@@ -271,11 +271,12 @@ def prepare_ligand(ligand_name):
     print(f'Done')
 
 def prepare_peptide(peptide_name):
-    peptide_name = peptide_name.replace(".sdf", "")
+    format = peptide_name.split(".")[-1]
+    peptide_name = peptide_name.split(".")[0]
     os.system(f"cp {in_folder}/lig_or_pep/leap_peptide.in .")
-    os.system(f"mv ../{peptide_name}.sdf .")
-    os.system(f'obabel -isdf {peptide_name}.sdf -o pdb -O og_lig.pdb')
-    os.system(f"rm {peptide_name}.sdf")
+    os.system(f"mv ../{peptide_name}.{format} .")
+    os.system(f'obabel -i{format} {peptide_name}.{format} -o pdb -O og_lig.pdb')
+    os.system(f"rm {peptide_name}.{format}")
     os.system(f"pdb4amber -i og_lig.pdb -y --reduce --add-missing-atoms -p -o lig.pdb")
     print(f'---------------------------------------\nPreparing peptide...')
     os.system("tleap -s -f leap_peptide.in > leap_peptide.out")
@@ -469,8 +470,12 @@ if __name__ == '__main__':
     os.chdir(session_name)
     os.system(f'cp {ligand} .')
     ligand = ligand.split("/")[-1]
-    ligand_name_list = extract_SDF(ligand)
-    os.system(f"rm {ligand}")
+    format = ligand.split(".")[-1]
+    if format == "sdf":
+        ligand_name_list = extract_SDF(ligand)
+        os.system(f"rm {ligand}")
+    if format =="pdb":
+        ligand_name_list = [ligand]
     session_dir = os.getcwd()
 
     def ligand_functions(ligand_name):
