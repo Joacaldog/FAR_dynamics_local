@@ -468,15 +468,28 @@ if __name__ == '__main__':
     if not os.path.exists(session_name):
         os.mkdir(session_name)
     os.chdir(session_name)
-    os.system(f'cp {ligand} .')
-    ligand = ligand.split("/")[-1]
-    format = ligand.split(".")[-1]
-    if format == "sdf":
-        ligand_name_list = extract_SDF(ligand)
-        os.system(f"rm {ligand}")
-    if format =="pdb":
-        ligand_name_list = [ligand]
-    session_dir = os.getcwd()
+    if os.path.isdir(ligand):
+        ligand_name_list = []
+        for file in os.listdir(ligand):
+            format = file.split(".")[-1]
+            if format =="pdb":
+                os.system(f'cp {ligand}/{file} .')
+                ligand_name_list.append(file)
+            if format == "sdf":
+                ligand_name_list = extract_SDF(file)
+                os.system(f"rm {file}")
+        session_dir = os.getcwd()
+        
+    else:
+        os.system(f'cp {ligand} .')
+        ligand = ligand.split("/")[-1]
+        format = ligand.split(".")[-1]
+        if format == "sdf":
+            ligand_name_list = extract_SDF(ligand)
+            os.system(f"rm {ligand}")
+        if format =="pdb":
+            ligand_name_list = [ligand]
+        session_dir = os.getcwd()
 
     def ligand_functions(ligand_name):
         os.chdir(session_dir)
