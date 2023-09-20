@@ -418,7 +418,7 @@ def extract_SDF(ligand):
         for i in range(len(indexes)):
             start = 0 if i == 0 else indexes[i - 1] + 1
             end = indexes[i]
-            output_file = f'{line_list[start].replace("|", "_").strip()}.sdf'
+            output_file = f'{line_list[start].replace("|", "_").strip().replace(".pdb", "")}.sdf'
             with open(output_file, "w") as of:
                 data_list = line_list[start:end + 1]
                 for line in data_list:
