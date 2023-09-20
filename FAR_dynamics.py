@@ -12,7 +12,7 @@ parser = argparse.ArgumentParser(description=program_description)
 parser.add_argument("-l", "--ligand", type=str,
                     help="Ligand file in SDF format", nargs='?')
 parser.add_argument("-p", "--peptide", type=str,
-                    help="Peptide file in PDB format", nargs='?')
+                    help="Peptide file in SDF format", nargs='?')
 parser.add_argument("-r", "--receptor", type=str,
                     help="Receptor file in PDB format or folder containing multiple receptors", required=True)
 parser.add_argument("-GPU", "--GPU_range", type=str,
