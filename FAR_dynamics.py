@@ -10,11 +10,11 @@ from rdkit.Chem import AllChem
 program_description = "Runs FAR protocol"
 parser = argparse.ArgumentParser(description=program_description)
 parser.add_argument("-l", "--ligand", type=str,
-                    help="Ligand file in SDF format", nargs='?')
+                    help="Ligand file or folder containing multiple ligands in SDF format", nargs='?')
 parser.add_argument("-p", "--peptide", type=str,
-                    help="Peptide file in PDB or SDF format", nargs='?')
+                    help="Peptide file or folder containing multiple peptides in PDB format", nargs='?')
 parser.add_argument("-r", "--receptor", type=str,
-                    help="Receptor file in PDB format or folder containing multiple receptors", required=True)
+                    help="Receptor file or folder containing multiple receptors in PDB format", required=True)
 parser.add_argument("-GPU", "--GPU_range", type=str,
                     help="Specify GPUs from 0 to 7 (e.g: 0-3 to utilize GPUs 0,1,2)", required=True)
 parser.add_argument("-in", "--in_folder", type=str,
@@ -256,10 +256,7 @@ def prepare_ligand(ligand_name):
     cp_sdf = f"mv ../{ligand_name} ."
     os.system(cp_sdf)
     os.system(f"mv {ligand_name} lig.sdf")
-    if "MinPEP" in ligand_name:
-        charge_ligand = int(charge_check("lig.sdf")) - 1
-    else:
-        charge_ligand = charge_check("lig.sdf")
+    charge_ligand = charge_check("lig.sdf")
     print(f'---------------------------------------\nPreparing ligand...')
     print(f"Net charge of ligand is {charge_ligand}")
     cmd_mol2_to_prepi = f"antechamber -i lig.sdf -fi sdf -o lig.mol2 -fo mol2 -dr n -at gaff2 -c bcc -nc {charge_ligand} -pf Y> antechamber_ligand.log"
@@ -273,13 +270,20 @@ def prepare_ligand(ligand_name):
 def prepare_peptide(peptide_name):
     format = peptide_name.split(".")[-1]
     peptide_name = peptide_name.split(".")[0]
-    os.system(f"cp {in_folder}/lig_or_pep/leap_peptide.in .")
+    os.system(f"cp {in_folder}/lig_or_pep/leap_ligand.in .")
     os.system(f"mv ../{peptide_name}.{format} .")
-    os.system(f'obabel -i{format} {peptide_name}.{format} -o pdb -O og_lig.pdb')
-    os.system(f"rm {peptide_name}.{format}")
-    os.system(f"pdb4amber -i og_lig.pdb -y --reduce --add-missing-atoms -p -o lig.pdb")
+    os.system(f'mv {peptide_name}.{format} og_lig.pdb')
+    os.system(f"pdb4amber -i og_lig.pdb -y --add-missing-atoms --reduce -d -p -o lig.pdb")
+    os.system(f'obabel -ipdb lig.pdb -o sdf -O lig.sdf')
+    charge_ligand = charge_check("lig.sdf")
     print(f'---------------------------------------\nPreparing peptide...')
-    os.system("tleap -s -f leap_peptide.in > leap_peptide.out")
+    print(f"Net charge of ligand is {charge_ligand}")
+    cmd_mol2_to_prepi = f"antechamber -i lig.sdf -fi sdf -o lig.mol2 -fo mol2 -dr n -at gaff2 -c bcc -nc {charge_ligand} -pf Y> antechamber_peptide.log"
+    os.system(cmd_mol2_to_prepi)
+    cmd_frcmod = "parmchk2 -i lig.mol2 -o lig.frcmod -f mol2 -a Y"
+    os.system(cmd_frcmod)
+    cmd_leap_ligand = "tleap -s -f leap_ligand.in > leap_peptide.out"
+    os.system(cmd_leap_ligand)
     print("Done")
 
 def prepare_receptor(receptor_file):
@@ -289,13 +293,13 @@ def prepare_receptor(receptor_file):
         os.mkdir(receptor_folder)
     os.chdir(receptor_folder)
     os.system(f"cp {in_folder}/core/* .")
-    if peptide_type:
-        os.system(f"cp {in_folder}/lig_or_pep/*peptide* .")
-    if ligand_type:
-        os.system(f"cp {in_folder}/lig_or_pep/*ligand* .")
+    # if peptide_type:
+    #     os.system(f"cp {in_folder}/lig_or_pep/*peptide* .")
+    # if ligand_type:
+    os.system(f"cp {in_folder}/lig_or_pep/*ligand* .")
     os.system(f"cp {receptor_file} .")
     os.system(f"mv {receptor_name}.pdb og_receptor.pdb")
-    os.system(f"pdb4amber -i og_receptor.pdb -y --reduce --add-missing-atoms -p -o receptor_mod.pdb")
+    os.system(f"pdb4amber -i og_receptor.pdb -y --add-missing-atoms --reduce -d -p -o receptor_mod.pdb")
     if cofactor_folder != None:
         os.system(f"cp {in_folder}/cofactor/leap_cofactor.in .")
         if os.path.isdir(cofactor_folder):
@@ -326,30 +330,30 @@ def run_dynamics(session_dir, receptor_file, ligand_name, gpu_num):
     os.system(f"cp -r ../{receptor_folder} .")
     os.chdir(receptor_folder)
     os.system(f"cp ../lig.* .")
-    if ligand_type:
-        if cofactor_folder != None:
-            os.system(f"cp {in_folder}/cofactor/*ligand* .")
-            print(f'---------------------------------------\nPreparing complex with cofactor...')
-            cmd_leap = "tleap -s -f leap_commands_ligand_cofactor_prot.in > leap_lig_cofactor_prot.out"
-            os.system(cmd_leap)
-            print('Done')
-        if cofactor_folder == None:
-            print(f'---------------------------------------\nPreparing complex...')
-            cmd_leap = "tleap -s -f leap_commands_ligand_prot.in > leap_lig_prot.out"
-            os.system(cmd_leap)
-            print('Done')
-    if peptide_type:
-        if cofactor_folder != None:
-            os.system(f"cp {in_folder}/cofactor/*peptide* .")
-            print(f'---------------------------------------\nPreparing complex with cofactor...')
-            cmd_leap = "tleap -s -f leap_commands_peptide_cofactor_prot.in > leap_pep_cofactor_prot.out"
-            os.system(cmd_leap)
-            print('Done')
-        if cofactor_folder == None:
-            print(f'---------------------------------------\nPreparing complex...')
-            cmd_leap = "tleap -s -f leap_commands_peptide_prot.in > leap_pep_prot.out"
-            os.system(cmd_leap)
-            print('Done')
+    # if ligand_type:
+    if cofactor_folder != None:
+        os.system(f"cp {in_folder}/cofactor/*ligand* .")
+        print(f'---------------------------------------\nPreparing complex with cofactor...')
+        cmd_leap = "tleap -s -f leap_commands_ligand_cofactor_prot.in > leap_lig_cofactor_prot.out"
+        os.system(cmd_leap)
+        print('Done')
+    if cofactor_folder == None:
+        print(f'---------------------------------------\nPreparing complex...')
+        cmd_leap = "tleap -s -f leap_commands_ligand_prot.in > leap_lig_prot.out"
+        os.system(cmd_leap)
+        print('Done')
+    # if peptide_type:
+    #     if cofactor_folder != None:
+    #         os.system(f"cp {in_folder}/cofactor/*peptide* .")
+    #         print(f'---------------------------------------\nPreparing complex with cofactor...')
+    #         cmd_leap = "tleap -s -f leap_commands_peptide_cofactor_prot.in > leap_pep_cofactor_prot.out"
+    #         os.system(cmd_leap)
+    #         print('Done')
+    #     if cofactor_folder == None:
+    #         print(f'---------------------------------------\nPreparing complex...')
+    #         cmd_leap = "tleap -s -f leap_commands_peptide_prot.in > leap_pep_prot.out"
+    #         os.system(cmd_leap)
+    #         print('Done')
     parminfo_complex = "cpptraj complex-no_water.prmtop -i parminfo.in > parminfo_complex.out"
     os.system(parminfo_complex)
     molinfo = "cpptraj complex-no_water.prmtop -i molinfo.in > molinfo_complex.out"
