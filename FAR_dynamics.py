@@ -584,13 +584,13 @@ if __name__ == '__main__':
             if peptide_type:
                 prepare_peptide(ligand_name)
 
-        with multiprocessing.Pool(processes=threads) as pool:
+        with multiprocessing.Pool(processes=binding_threads) as pool:
             pool.map(ligand_functions, ligand_name_list)
 
         if os.path.isdir(receptor):
             receptor_list = os.listdir(receptor)
             receptor_list = [f'{receptor}/{receptor_file}' for receptor_file in receptor_list]
-            with multiprocessing.Pool(processes=threads) as pool:
+            with multiprocessing.Pool(processes=binding_threads) as pool:
                 pool.map(prepare_receptor, receptor_list)
             if len(receptor_list) >= len(ligand_name_list):
                 gpu_cycle = itertools.cycle(gpu_ids)
@@ -606,7 +606,7 @@ if __name__ == '__main__':
             os.system(f'cp {receptor} {session_name}')
             receptor_list = [receptor.split("/")[-1]]
             receptor_list = [f'{session_name}/{receptor_file}' for receptor_file in receptor_list]
-            with multiprocessing.Pool(processes=threads) as pool:
+            with multiprocessing.Pool(processes=binding_threads) as pool:
                 pool.map(prepare_receptor, receptor_list)
             gpu_cycle = itertools.cycle(gpu_ids)
             with multiprocessing.Pool(processes=threads) as pool:
