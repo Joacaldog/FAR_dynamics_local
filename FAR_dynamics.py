@@ -9,12 +9,13 @@ from rdkit.Chem import AllChem
 
 program_description = "Runs FAR protocol"
 parser = argparse.ArgumentParser(description=program_description)
+
 parser.add_argument("-l", "--ligand", type=str,
                     help="Ligand file or folder containing multiple ligands in SDF format", nargs='?')
 parser.add_argument("-p", "--peptide", type=str,
                     help="Peptide file or folder containing multiple peptides in PDB format", nargs='?')
 parser.add_argument("-r", "--receptor", type=str,
-                    help="Receptor file or folder containing multiple receptors in PDB format", required=True)
+                    help="Receptor file or folder containing multiple receptors in PDB format", nargs='?')
 parser.add_argument("-GPU", "--GPU_range", type=str,
                     help="Specify GPUs from 0 to 7 (e.g: 0-3 to utilize GPUs 0,1,2)", required=True)
 parser.add_argument("-in", "--in_folder", type=str,
@@ -25,40 +26,60 @@ parser.add_argument("-co", "--cofactor", nargs='?',
                     help="Optional: Cofactor file in SDF format or folder containing multiple cofactors (if folder RECEPTOR'S FILENAME WITHOUT EXTENSION MUST BE WITHIN COFACTOR'S FILE NAME)")
 parser.add_argument("-cop", "--cofactor_prefix", nargs='?',
                     help="if you provided a cofactor's folder you must enter a prefix that will be used to find the file (e.g.: -cop SAM_ ---will-find--> SAM_receptorName.sdf)")
-parser.add_argument("-prod", "--prod", action="store_true",
-                    help="Optional: Runs 100ns of molecular dynamics production phase and utilizes MMPBSA for calculation of binding free energy")
-
+parser.add_argument("-prod", "--prod", nargs='?',
+                    help="Optional: Runs given nano seconds of molecular dynamics production phase and utilizes MMPBSA for calculation of binding free energy (e.g.: -prod 5 ---> will run 5ns)")
+parser.add_argument("-prod_only", "--prod_only", nargs='?',
+                    help="Optional: Only runs molecular dynamics production phase and utilizes MMPBSA for calculation of binding free energy (MUST BE RUNED IN DIRECTORY WHERE PREVIOUSLY FAR WAS PERFORMED)")
 args = parser.parse_args()
-ligand_type = args.ligand
-peptide_type = args.peptide
-if ligand_type:
-    ligand = os.path.abspath(args.ligand)
-if peptide_type:
-    ligand = os.path.abspath(args.peptide)
-if not ligand_type and not peptide_type:
-    parser.error(f"You must provide ligand (-l) or peptide (-p)")  
-receptor = os.path.abspath(args.receptor)
-complex_file = f'{ligand.replace(".sdf", "")}'
+prod_only = args.prod_only
+if not prod_only:
+    ligand_type = args.ligand
+    peptide_type = args.peptide
+    if ligand_type:
+        if "sdf" in ligand_type:
+            ligand = os.path.abspath(args.ligand)
+        else:
+            parser.error(f"You must provide ligand in sdf format")
+    if peptide_type:
+        if "pdb" in peptide_type:
+            ligand = os.path.abspath(args.peptide)
+        else:
+            parser.error(f"You must provide peptide in pdb format")
+    if not ligand_type and not peptide_type:
+        parser.error(f"You must provide ligand (-l) or peptide (-p)")
+    receptor = args.receptor
+    if receptor:  
+        receptor = os.path.abspath(args.receptor)
+    if not receptor:
+        parser.error(f"You must provide receptor (-r)")  
+    complex_file = f'{ligand.replace(".sdf", "")}'
+    cofactor_folder = args.cofactor
+    prefix_cofactor = args.cofactor_prefix
+    prod = args.prod
+    time_prod = prod
+    if cofactor_folder:
+        cofactor_folder = os.path.abspath(cofactor_folder)
+        if prefix_cofactor == None and os.path.isdir(cofactor_folder):
+            parser.error(f"if you provided a cofactor's folder you must enter a prefix that will be used to find the files (e.g.: -cop SAM_ ---will-find--> SAM_receptorName.sdf)")
+if prod_only:
+    time_prod = prod_only
+threads = args.threads
 range_GPU = args.GPU_range
 in_folder = os.path.abspath(args.in_folder)
 range_GPU_S = int(range_GPU.split("-")[0])
 range_GPU_E = int(range_GPU.split("-")[1])
-cofactor_folder = args.cofactor
-prefix_cofactor = args.cofactor_prefix
-prod = args.prod
-threads = args.threads
-  
 
-if cofactor_folder:
-    cofactor_folder = os.path.abspath(cofactor_folder)
-    if prefix_cofactor == None and os.path.isdir(cofactor_folder):
-        parser.error(f"if you provided a cofactor's folder you must enter a prefix that will be used to find the files (e.g.: -cop SAM_ ---will-find--> SAM_receptorName.sdf)")
 
-if prod != True:
-    print("Running FAR protocol")
 
-if prod == True:
-    print("Running FAR protocol and 100ns of molecular dynamics production with MMPBSA calculation")
+if not prod_only:
+    if not prod:
+        print("Running FAR protocol")
+    if prod:
+        threads == len(range(range_GPU_S,range_GPU_E))
+        print(f"Running FAR protocol and {time_prod}ns of molecular dynamics production with MMPBSA calculation")
+
+if prod_only:
+    print(f"Running only {time_prod}ns of molecular dynamics production with MMPBSA calculation")
 
 def data_seeker(file, startswith, mode):
     if mode == "atoms_number":
@@ -200,7 +221,13 @@ def mod_in_file(residues_number, residues_number_prot):
                         io.write(line + "\n")
     os.system("rm min.in min2.in min3.in")
 
-def mod_in_file_prod(residues_number):
+def mod_in_file_prod(residues_number, atoms_data):
+    atoms_data = [int(x) for x in atoms_data]
+    total_atoms_solvated = str(atoms_data[-1])
+    end_rec = atoms_data[0]
+    rec_groups_number = len(atoms_data) -2
+    start_pep = sum(atoms_data[:-2])+1
+    end_pep = sum(atoms_data[:-2])+atoms_data[-2]
     files = ["heat.in", "density.in"]
     for file in files:
         with open(f"{file.split('.')[0]}_mod.{file.split('.')[1]}", "w") as io:
@@ -223,7 +250,29 @@ def mod_in_file_prod(residues_number):
                     io.write(f"{line1}:1-{residues_number}\n")
                 if "rms fit" not in line:
                     io.write(line + "\n")
-    os.system("rm heat.in density.in remove_water_prod_mdcrd.in")
+
+    rmsd_file = "measure_prod_rmsd.in"
+    with open(f"{rmsd_file.split('.')[0]}_mod.{rmsd_file.split('.')[1]}", "w") as io:
+        with open(rmsd_file) as f:
+            for line in f.readlines():
+                line = line.strip("\n")
+                if "prod.rmsd" in line:
+                    line1 = line.split("@")[0]
+                    io.write(f"{line1}@{start_pep}-{end_pep}\n")
+                if "prod.rmsd" not in line:
+                    io.write(line + "\n")
+
+    rmsd_file = "measure_prod_ligand_rmsf.in"
+    with open(f"{rmsd_file.split('.')[0]}_mod.{rmsd_file.split('.')[1]}", "w") as io:
+        with open(rmsd_file) as f:
+            for line in f.readlines():
+                line = line.strip("\n")
+                if "atomicfluct" in line:
+                    line1 = line.split("@")[0]
+                    io.write(f"{line1}@{start_pep}-{end_pep}\n")
+                if "atomicfluct" not in line:
+                    io.write(line + "\n")
+    os.system("rm heat.in density.in remove_water_prod_mdcrd.in measure_prod_rmsd.in measure_prod_ligand_rmsf.in")
 
 def charge_check(file):
 
@@ -249,6 +298,48 @@ def charge_check(file):
 
         return net_charge
 
+def mod_prod(new_nstlim):
+    new_nstlim = int(int(new_nstlim) * 1000 / 0.002)
+    total_frames = int(round(((new_nstlim * 5000) / 50000000), 0))
+    new_ntpr = int(round((int(new_nstlim) / total_frames), 0))
+    if new_ntpr == 0:
+        new_ntpr += 1
+    nfreq = int(round((total_frames / 100), 0))
+    if nfreq == 0:
+        nfreq += 1
+    frames_evaluated = int(round((total_frames / nfreq), 0))
+    with open('prod.in', 'r') as file:
+        lines = file.readlines()
+    for i, line in enumerate(lines):
+        if 'nstlim' in line:
+            lines[i] = f"  nstlim={new_nstlim},dt=0.002,\n"
+        elif 'ntpr' in line:
+            lines[i] = f"  ntpr={new_ntpr}, ntwx={new_ntpr},\n"
+    with open('prod_mod.in', 'w') as file:
+        file.writelines(lines)
+
+    os.system(f'mv extract_coords_prod_mod.mmpbsa extract_coords_prod.mmpbsa') 
+    with open('extract_coords_prod.mmpbsa', 'r') as file:
+        lines = file.readlines()
+    for i, line in enumerate(lines):
+        if 'NSTOP' in line:
+            lines[i] = f"NSTOP                   {total_frames}\n"
+        if 'NFREQ' in line:
+            lines[i] = f"NFREQ                   {nfreq}\n"
+    with open('extract_coords_prod_mod.mmpbsa', 'w') as file:
+        file.writelines(lines)
+
+    with open('binding_energy_prod.mmpbsa', 'r') as file:
+        lines = file.readlines()
+    for i, line in enumerate(lines):
+        if 'PARALLEL' in line:
+            lines[i] = f"PARALLEL              {threads}\n"
+        if 'STOP' in line:
+            lines[i] = f"STOP                  {frames_evaluated}\n"
+    with open('binding_energy_prod_mod.mmpbsa', 'w') as file:
+        file.writelines(lines)
+    
+    os.system("rm prod.in binding_energy_prod.mmpbsa extract_coords_prod.mmpbsa")
 
 def prepare_ligand(ligand_name):
     cp_in_files = f"cp {in_folder}/lig_or_pep/leap_ligand.in ."
@@ -293,9 +384,6 @@ def prepare_receptor(receptor_file):
         os.mkdir(receptor_folder)
     os.chdir(receptor_folder)
     os.system(f"cp {in_folder}/core/* .")
-    # if peptide_type:
-    #     os.system(f"cp {in_folder}/lig_or_pep/*peptide* .")
-    # if ligand_type:
     os.system(f"cp {in_folder}/lig_or_pep/*ligand* .")
     os.system(f"cp {receptor_file} .")
     os.system(f"mv {receptor_name}.pdb og_receptor.pdb")
@@ -342,18 +430,6 @@ def run_dynamics(session_dir, receptor_file, ligand_name, gpu_num):
         cmd_leap = "tleap -s -f leap_commands_ligand_prot.in > leap_lig_prot.out"
         os.system(cmd_leap)
         print('Done')
-    # if peptide_type:
-    #     if cofactor_folder != None:
-    #         os.system(f"cp {in_folder}/cofactor/*peptide* .")
-    #         print(f'---------------------------------------\nPreparing complex with cofactor...')
-    #         cmd_leap = "tleap -s -f leap_commands_peptide_cofactor_prot.in > leap_pep_cofactor_prot.out"
-    #         os.system(cmd_leap)
-    #         print('Done')
-    #     if cofactor_folder == None:
-    #         print(f'---------------------------------------\nPreparing complex...')
-    #         cmd_leap = "tleap -s -f leap_commands_peptide_prot.in > leap_pep_prot.out"
-    #         os.system(cmd_leap)
-    #         print('Done')
     parminfo_complex = "cpptraj complex-no_water.prmtop -i parminfo.in > parminfo_complex.out"
     os.system(parminfo_complex)
     molinfo = "cpptraj complex-no_water.prmtop -i molinfo.in > molinfo_complex.out"
@@ -391,10 +467,11 @@ def run_dynamics(session_dir, receptor_file, ligand_name, gpu_num):
     os.system(f'mv snapshot* FAR_results')
     os.system(f'mv coords extract_coords.err extract_coords.log binding_energy.log FAR_results; mkdir coords')
     #Here starts prod commands
-    if prod == True:
+    if prod:
         os.system(f"cp {in_folder}/prod/* .")
-        mod_in_file_prod(residues_number)
         extract_coords_mod("extract_coords_prod.mmpbsa", atoms_data)
+        mod_in_file_prod(residues_number, atoms_data)
+        mod_prod(time_prod)
         print(f'---------------------------------------\nRunning molecular dynamics...')
         tmux_send_run2 = f'python3 run_commands.py commands.txt'
         os.system(tmux_send_run2)
@@ -402,11 +479,11 @@ def run_dynamics(session_dir, receptor_file, ligand_name, gpu_num):
         os.system(convert_trj)
         remove_wat_cmd = f'cpptraj -i remove_water_prod_mdcrd_mod.in'
         os.system(remove_wat_cmd)
-        os.system(f'cpptraj -i measure_prod_rmsd.in')
-        os.system(f'cpptraj -i measure_prod_rmsf.in')
+        os.system(f'cpptraj -i measure_prod_rmsd_mod.in')
+        os.system(f'cpptraj -i measure_prod_ligand_rmsf_mod.in')
         extrac_coords_cmd = f'$AMBERHOME/bin/mm_pbsa.pl extract_coords_prod_mod.mmpbsa 1> extract_coords_prod.log 2>extract_coords_prod.err'
         os.system(extrac_coords_cmd)
-        bindingE_cmd = f'$AMBERHOME/bin/mm_pbsa.pl binding_energy_prod.mmpbsa > binding_energy_prod.log'
+        bindingE_cmd = f'$AMBERHOME/bin/mm_pbsa.pl binding_energy_prod_mod.mmpbsa > binding_energy_prod.log'
         os.system(bindingE_cmd)
     print("FAR protocol finished")
 
@@ -437,7 +514,6 @@ def table_generator():
         for ligand_folder in next(os.walk("."))[1]:
             for receptor_folder in next(os.walk(ligand_folder))[1]:
                 ligand_name = ligand_folder.replace("run_", "")
-                # ligand_number = int(ligand_name.split("_")[-1])
                 receptor_name = receptor_folder.replace("rec_", "")
                 try:
                     file = f'{ligand_folder}/{receptor_folder}/FAR_results/snapshot_statistics.out'
@@ -463,79 +539,105 @@ def table_generator():
 
 if __name__ == '__main__':
     gpu_ids = list(range(range_GPU_S,range_GPU_E))
-    initial_path = os.getcwd()
-    ligand_name = ligand.split("/")[-1]
-    if cofactor_folder == None:
-        session_name = f'{initial_path}/run_{ligand_name.replace(".sdf", "").replace(".pdb", "")}'
-    if cofactor_folder != None:
-        session_name = f'{initial_path}/run_{ligand_name.replace(".sdf", "").replace(".pdb", "")}_wCofactor'
-    if not os.path.exists(session_name):
-        os.mkdir(session_name)
-    os.chdir(session_name)
-    if os.path.isdir(ligand):
-        ligand_name_list = []
-        for file in os.listdir(ligand):
-            format = file.split(".")[-1]
-            if format =="pdb":
-                os.system(f'cp {ligand}/{file} .')
-                ligand_name_list.append(file)
+    if not prod_only:
+        initial_path = os.getcwd()
+        ligand_name = ligand.split("/")[-1]
+        if cofactor_folder == None:
+            session_name = f'{initial_path}/run_{ligand_name.replace(".sdf", "").replace(".pdb", "")}'
+        if cofactor_folder != None:
+            session_name = f'{initial_path}/run_{ligand_name.replace(".sdf", "").replace(".pdb", "")}_wCofactor'
+        if not os.path.exists(session_name):
+            os.mkdir(session_name)
+        os.chdir(session_name)
+        if os.path.isdir(ligand):
+            ligand_name_list = []
+            for file in os.listdir(ligand):
+                format = file.split(".")[-1]
+                if format =="pdb":
+                    os.system(f'cp {ligand}/{file} .')
+                    ligand_name_list.append(file)
+                if format == "sdf":
+                    ligand_name_list = extract_SDF(file)
+                    os.system(f"rm {file}")
+            session_dir = os.getcwd()
+            
+        else:
+            os.system(f'cp {ligand} .')
+            ligand = ligand.split("/")[-1]
+            format = ligand.split(".")[-1]
             if format == "sdf":
-                ligand_name_list = extract_SDF(file)
-                os.system(f"rm {file}")
-        session_dir = os.getcwd()
-        
-    else:
-        os.system(f'cp {ligand} .')
-        ligand = ligand.split("/")[-1]
-        format = ligand.split(".")[-1]
-        if format == "sdf":
-            ligand_name_list = extract_SDF(ligand)
-            os.system(f"rm {ligand}")
-        if format =="pdb":
-            ligand_name_list = [ligand]
-        session_dir = os.getcwd()
+                ligand_name_list = extract_SDF(ligand)
+                os.system(f"rm {ligand}")
+            if format =="pdb":
+                ligand_name_list = [ligand]
+            session_dir = os.getcwd()
 
-    def ligand_functions(ligand_name):
-        os.chdir(session_dir)
-        ligand_folder = f'run_{ligand_name.replace(".sdf", "").replace(".pdb", "")}'
-        if not os.path.exists(ligand_folder):
-            os.mkdir(ligand_folder)
-        os.chdir(ligand_folder)
-        if ligand_type:
-            prepare_ligand(ligand_name)
-        if peptide_type:
-            prepare_peptide(ligand_name)
+        def ligand_functions(ligand_name):
+            os.chdir(session_dir)
+            ligand_folder = f'run_{ligand_name.replace(".sdf", "").replace(".pdb", "")}'
+            if not os.path.exists(ligand_folder):
+                os.mkdir(ligand_folder)
+            os.chdir(ligand_folder)
+            if ligand_type:
+                prepare_ligand(ligand_name)
+            if peptide_type:
+                prepare_peptide(ligand_name)
 
-    with multiprocessing.Pool(processes=threads) as pool:
-        pool.map(ligand_functions, ligand_name_list)
-
-    if os.path.isdir(receptor):
-        receptor_list = os.listdir(receptor)
-        receptor_list = [f'{receptor}/{receptor_file}' for receptor_file in receptor_list]
         with multiprocessing.Pool(processes=threads) as pool:
-            pool.map(prepare_receptor, receptor_list)
-        if len(receptor_list) >= len(ligand_name_list):
+            pool.map(ligand_functions, ligand_name_list)
+
+        if os.path.isdir(receptor):
+            receptor_list = os.listdir(receptor)
+            receptor_list = [f'{receptor}/{receptor_file}' for receptor_file in receptor_list]
+            with multiprocessing.Pool(processes=threads) as pool:
+                pool.map(prepare_receptor, receptor_list)
+            if len(receptor_list) >= len(ligand_name_list):
+                gpu_cycle = itertools.cycle(gpu_ids)
+                with multiprocessing.Pool(processes=threads) as pool:
+                    args = [(session_dir, receptor_file, ligand_name, next(gpu_cycle)) for ligand_name in ligand_name_list for receptor_file in receptor_list]
+                    pool.starmap(run_dynamics, args)
+            if len(receptor_list) < len(ligand_name_list):
+                gpu_cycle = itertools.cycle(gpu_ids)
+                with multiprocessing.Pool(processes=threads) as pool:
+                    args = [(session_dir, receptor_file, ligand_name, next(gpu_cycle)) for receptor_file in receptor_list for ligand_name in ligand_name_list]
+                    pool.starmap(run_dynamics, args)
+        else:
+            os.system(f'cp {receptor} {session_name}')
+            receptor_list = [receptor.split("/")[-1]]
+            receptor_list = [f'{session_name}/{receptor_file}' for receptor_file in receptor_list]
+            with multiprocessing.Pool(processes=threads) as pool:
+                pool.map(prepare_receptor, receptor_list)
             gpu_cycle = itertools.cycle(gpu_ids)
             with multiprocessing.Pool(processes=threads) as pool:
-                args = [(session_dir, receptor_file, ligand_name, next(gpu_cycle)) for ligand_name in ligand_name_list for receptor_file in receptor_list]
+                args = [(session_dir, receptor_list[0], ligand_name, next(gpu_cycle)) for ligand_name in ligand_name_list]
                 pool.starmap(run_dynamics, args)
-        if len(receptor_list) < len(ligand_name_list):
-            gpu_cycle = itertools.cycle(gpu_ids)
-            with multiprocessing.Pool(processes=threads) as pool:
-                args = [(session_dir, receptor_file, ligand_name, next(gpu_cycle)) for receptor_file in receptor_list for ligand_name in ligand_name_list]
-                pool.starmap(run_dynamics, args)
-    else:
-        os.system(f'cp {receptor} {session_name}')
-        receptor_list = [receptor.split("/")[-1]]
-        receptor_list = [f'{session_name}/{receptor_file}' for receptor_file in receptor_list]
-        with multiprocessing.Pool(processes=threads) as pool:
-            pool.map(prepare_receptor, receptor_list)
-        gpu_cycle = itertools.cycle(gpu_ids)
-        with multiprocessing.Pool(processes=threads) as pool:
-            args = [(session_dir, receptor_list[0], ligand_name, next(gpu_cycle)) for ligand_name in ligand_name_list]
-            pool.starmap(run_dynamics, args)
-        os.system(f"rm {receptor_list[0]}")
+            os.system(f"rm {receptor_list[0]}")
 
-    os.chdir(session_name)
-    os.system("rm -r rec*")
-    table_generator()
+        os.chdir(session_name)
+        os.system("rm -r rec*")
+        table_generator()
+
+    if prod_only:
+        os.environ['CUDA_VISIBLE_DEVICES'] = str(range_GPU_S)
+        atoms_number = data_seeker("parminfo_solvated.out", "Topology", "atoms_number")
+        residues_number = data_seeker("parminfo_complex.out", "residues", "residues_number")
+        atoms_data = data_seeker("molinfo_no_water.out", "None", "atoms_data")
+        atoms_data.append(atoms_number)
+        os.system(f"cp {in_folder}/prod/* .")
+        extract_coords_mod("extract_coords_prod.mmpbsa", atoms_data)
+        mod_in_file_prod(residues_number, atoms_data)
+        mod_prod(time_prod)
+        print(f'---------------------------------------\nRunning molecular dynamics...')
+        tmux_send_run2 = f'python3 run_commands.py commands.txt'
+        os.system(tmux_send_run2)
+        convert_trj = f'cpptraj -p complex_solvated.prmtop -y prod.mdcrd -x prod.trj'
+        os.system(convert_trj)
+        remove_wat_cmd = f'cpptraj -i remove_water_prod_mdcrd_mod.in'
+        os.system(remove_wat_cmd)
+        os.system(f'cpptraj -i measure_prod_rmsd_mod.in')
+        os.system(f'cpptraj -i measure_prod_ligand_rmsf_mod.in')
+        extrac_coords_cmd = f'$AMBERHOME/bin/mm_pbsa.pl extract_coords_prod_mod.mmpbsa 1> extract_coords_prod.log 2>extract_coords_prod.err'
+        os.system(extrac_coords_cmd)
+        bindingE_cmd = f'$AMBERHOME/bin/mm_pbsa.pl binding_energy_prod_mod.mmpbsa > binding_energy_prod.log'
+        os.system(bindingE_cmd)
+        print("FAR protocol finished")
