@@ -64,6 +64,7 @@ if not prod_only:
 if prod_only:
     time_prod = prod_only
 threads = args.threads
+binding_threads = threads
 range_GPU = args.GPU_range
 in_folder = os.path.abspath(args.in_folder)
 range_GPU_S = int(range_GPU.split("-")[0])
@@ -333,7 +334,7 @@ def mod_prod(new_nstlim):
         lines = file.readlines()
     for i, line in enumerate(lines):
         if 'PARALLEL' in line:
-            lines[i] = f"PARALLEL              {threads}\n"
+            lines[i] = f"PARALLEL              {binding_threads}\n"
         if 'STOP' in line:
             lines[i] = f"STOP                  {frames_evaluated}\n"
     with open('binding_energy_prod_mod.mmpbsa', 'w') as file:
