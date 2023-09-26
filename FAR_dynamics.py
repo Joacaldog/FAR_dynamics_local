@@ -36,15 +36,9 @@ if not prod_only:
     ligand_type = args.ligand
     peptide_type = args.peptide
     if ligand_type:
-        if "sdf" in ligand_type:
-            ligand = os.path.abspath(args.ligand)
-        else:
-            parser.error(f"You must provide ligand in sdf format")
+        ligand = os.path.abspath(args.ligand)
     if peptide_type:
-        if "pdb" in peptide_type:
-            ligand = os.path.abspath(args.peptide)
-        else:
-            parser.error(f"You must provide peptide in pdb format")
+        ligand = os.path.abspath(args.peptide)
     if not ligand_type and not peptide_type:
         parser.error(f"You must provide ligand (-l) or peptide (-p)")
     receptor = args.receptor
