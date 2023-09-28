@@ -558,15 +558,6 @@ def table_generator():
 if __name__ == '__main__':
     gpu_ids = list(range(range_GPU_S,range_GPU_E))
     if not prod_only:
-        # initial_path = os.getcwd()
-        # ligand_name = ligand.split("/")[-1]
-        # if cofactor_folder == None:
-        #     session_name = f'{initial_path}/run_{ligand_name.replace(".sdf", "").replace(".pdb", "")}'
-        # if cofactor_folder != None:
-        #     session_name = f'{initial_path}/run_{ligand_name.replace(".sdf", "").replace(".pdb", "")}_wCofactor'
-        # if not os.path.exists(session_name):
-        #     os.mkdir(session_name)
-        # os.chdir(session_name)
         if os.path.isdir(ligand):
             ligand_name_list = []
             for file in os.listdir(ligand):
