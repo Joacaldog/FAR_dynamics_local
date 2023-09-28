@@ -76,6 +76,17 @@ if not prod_only:
 if prod_only:
     print(f"Running only {time_prod}ns of molecular dynamics production with MMPBSA calculation")
 
+if not prod_only:
+    initial_path = os.getcwd()
+    ligand_name = ligand.split("/")[-1]
+    if cofactor_folder == None:
+        session_name = f'{initial_path}/run_{ligand_name.replace(".sdf", "").replace(".pdb", "")}'
+    if cofactor_folder != None:
+        session_name = f'{initial_path}/run_{ligand_name.replace(".sdf", "").replace(".pdb", "")}_wCofactor'
+    if not os.path.exists(session_name):
+        os.mkdir(session_name)
+    os.chdir(session_name)
+
 def data_seeker(file, startswith, mode):
     if mode == "atoms_number":
         with open(file) as f:
@@ -403,8 +414,20 @@ def prepare_receptor(receptor_file):
         os.system(cmd_leap_ligand)
         print('Done')
 
+def ligand_functions(ligand_name):
+    os.chdir(session_dir)
+    ligand_folder = f'run_{ligand_name.replace(".sdf", "").replace(".pdb", "")}'
+    if not os.path.exists(ligand_folder):
+        os.mkdir(ligand_folder)
+    os.chdir(ligand_folder)
+    if ligand_type:
+        prepare_ligand(ligand_name)
+    if peptide_type:
+        prepare_peptide(ligand_name) 
 
 def run_dynamics(session_dir, receptor_file, ligand_name, gpu_num):
+    if not os.path.isdir(receptor):
+        ligand_functions(ligand_name)
     os.chdir(session_dir)
     ligand_folder = f'run_{ligand_name.replace(".sdf", "").replace(".pdb", "")}'
     os.chdir(ligand_folder)
@@ -535,15 +558,15 @@ def table_generator():
 if __name__ == '__main__':
     gpu_ids = list(range(range_GPU_S,range_GPU_E))
     if not prod_only:
-        initial_path = os.getcwd()
-        ligand_name = ligand.split("/")[-1]
-        if cofactor_folder == None:
-            session_name = f'{initial_path}/run_{ligand_name.replace(".sdf", "").replace(".pdb", "")}'
-        if cofactor_folder != None:
-            session_name = f'{initial_path}/run_{ligand_name.replace(".sdf", "").replace(".pdb", "")}_wCofactor'
-        if not os.path.exists(session_name):
-            os.mkdir(session_name)
-        os.chdir(session_name)
+        # initial_path = os.getcwd()
+        # ligand_name = ligand.split("/")[-1]
+        # if cofactor_folder == None:
+        #     session_name = f'{initial_path}/run_{ligand_name.replace(".sdf", "").replace(".pdb", "")}'
+        # if cofactor_folder != None:
+        #     session_name = f'{initial_path}/run_{ligand_name.replace(".sdf", "").replace(".pdb", "")}_wCofactor'
+        # if not os.path.exists(session_name):
+        #     os.mkdir(session_name)
+        # os.chdir(session_name)
         if os.path.isdir(ligand):
             ligand_name_list = []
             for file in os.listdir(ligand):
@@ -567,21 +590,9 @@ if __name__ == '__main__':
                 ligand_name_list = [ligand]
             session_dir = os.getcwd()
 
-        def ligand_functions(ligand_name):
-            os.chdir(session_dir)
-            ligand_folder = f'run_{ligand_name.replace(".sdf", "").replace(".pdb", "")}'
-            if not os.path.exists(ligand_folder):
-                os.mkdir(ligand_folder)
-            os.chdir(ligand_folder)
-            if ligand_type:
-                prepare_ligand(ligand_name)
-            if peptide_type:
-                prepare_peptide(ligand_name)
-
-        with multiprocessing.Pool(processes=binding_threads) as pool:
-            pool.map(ligand_functions, ligand_name_list)
-
         if os.path.isdir(receptor):
+            with multiprocessing.Pool(processes=binding_threads) as pool:
+                pool.map(ligand_functions, ligand_name_list)
             receptor_list = os.listdir(receptor)
             receptor_list = [f'{receptor}/{receptor_file}' for receptor_file in receptor_list]
             with multiprocessing.Pool(processes=binding_threads) as pool:
