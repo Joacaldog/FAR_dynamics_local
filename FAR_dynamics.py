@@ -110,7 +110,7 @@ def data_seeker(file, startswith, mode):
             for line in f.readlines():
                 line = line.strip()
                 mol_line = re.findall('^[0-9].*', line, re.MULTILINE)
-                if mol_line:
+                if mol_line and not "molecule" in line:
                     mol_line_list.append(line)
 
         line = mol_line_list[-2]
@@ -118,15 +118,12 @@ def data_seeker(file, startswith, mode):
         return end_res_prot
         
     if mode == "atoms_data":
-        end_atom_1_out = []
-        end_atom2_out = []
         mol_line_list = []
-        start_end_atomi_out = []
         with open(file) as f:
             for line in f.readlines():
                 line = line.strip()
                 mol_line = re.findall('^[0-9].*', line, re.MULTILINE)
-                if mol_line:
+                if mol_line and not "molecule" in line:
                     mol_line_list.append(line)
         data = []
         for i in range(len(mol_line_list)):
@@ -134,14 +131,6 @@ def data_seeker(file, startswith, mode):
             end_atom_number = line.split()[1]
             data.append(end_atom_number)
         return data
-
-    if mode == "residues_range":
-        with open(file) as f:
-            for line in f.readlines():
-                line = line.strip()
-                if line.startswith("2"):
-                    data = "-".join([line.split()[3],line.split()[4]])
-                    return data
                 
 def extract_coords_mod(file, atoms_data):
     with open(f"{file.split('.')[0]}_mod.{file.split('.')[1]}", "w") as io:
@@ -558,57 +547,60 @@ def table_generator():
 if __name__ == '__main__':
     gpu_ids = list(range(range_GPU_S,range_GPU_E))
     if not prod_only:
-        if os.path.isdir(ligand):
-            ligand_name_list = []
-            for file in os.listdir(ligand):
-                format = file.split(".")[-1]
-                if format =="pdb":
-                    os.system(f'cp {ligand}/{file} .')
-                    ligand_name_list.append(file)
+        try:
+            if os.path.isdir(ligand):
+                ligand_name_list = []
+                for file in os.listdir(ligand):
+                    format = file.split(".")[-1]
+                    if format =="pdb":
+                        os.system(f'cp {ligand}/{file} .')
+                        ligand_name_list.append(file)
+                    if format == "sdf":
+                        ligand_name_list = extract_SDF(file)
+                        os.system(f"rm {file}")
+                session_dir = os.getcwd()
+                
+            else:
+                os.system(f'cp {ligand} .')
+                ligand = ligand.split("/")[-1]
+                format = ligand.split(".")[-1]
                 if format == "sdf":
-                    ligand_name_list = extract_SDF(file)
-                    os.system(f"rm {file}")
-            session_dir = os.getcwd()
-            
-        else:
-            os.system(f'cp {ligand} .')
-            ligand = ligand.split("/")[-1]
-            format = ligand.split(".")[-1]
-            if format == "sdf":
-                ligand_name_list = extract_SDF(ligand)
-                os.system(f"rm {ligand}")
-            if format =="pdb":
-                ligand_name_list = [ligand]
-            session_dir = os.getcwd()
+                    ligand_name_list = extract_SDF(ligand)
+                    os.system(f"rm {ligand}")
+                if format =="pdb":
+                    ligand_name_list = [ligand]
+                session_dir = os.getcwd()
 
-        if os.path.isdir(receptor):
-            with multiprocessing.Pool(processes=binding_threads) as pool:
-                pool.map(ligand_functions, ligand_name_list)
-            receptor_list = os.listdir(receptor)
-            receptor_list = [f'{receptor}/{receptor_file}' for receptor_file in receptor_list]
-            with multiprocessing.Pool(processes=binding_threads) as pool:
-                pool.map(prepare_receptor, receptor_list)
-            if len(receptor_list) >= len(ligand_name_list):
+            if os.path.isdir(receptor):
+                with multiprocessing.Pool(processes=binding_threads) as pool:
+                    pool.map(ligand_functions, ligand_name_list)
+                receptor_list = os.listdir(receptor)
+                receptor_list = [f'{receptor}/{receptor_file}' for receptor_file in receptor_list]
+                with multiprocessing.Pool(processes=binding_threads) as pool:
+                    pool.map(prepare_receptor, receptor_list)
+                if len(receptor_list) >= len(ligand_name_list):
+                    gpu_cycle = itertools.cycle(gpu_ids)
+                    with multiprocessing.Pool(processes=threads) as pool:
+                        args = [(session_dir, receptor_file, ligand_name, next(gpu_cycle)) for ligand_name in ligand_name_list for receptor_file in receptor_list]
+                        pool.starmap(run_dynamics, args)
+                if len(receptor_list) < len(ligand_name_list):
+                    gpu_cycle = itertools.cycle(gpu_ids)
+                    with multiprocessing.Pool(processes=threads) as pool:
+                        args = [(session_dir, receptor_file, ligand_name, next(gpu_cycle)) for receptor_file in receptor_list for ligand_name in ligand_name_list]
+                        pool.starmap(run_dynamics, args)
+            else:
+                os.system(f'cp {receptor} {session_name}')
+                receptor_list = [receptor.split("/")[-1]]
+                receptor_list = [f'{session_name}/{receptor_file}' for receptor_file in receptor_list]
+                with multiprocessing.Pool(processes=binding_threads) as pool:
+                    pool.map(prepare_receptor, receptor_list)
                 gpu_cycle = itertools.cycle(gpu_ids)
                 with multiprocessing.Pool(processes=threads) as pool:
-                    args = [(session_dir, receptor_file, ligand_name, next(gpu_cycle)) for ligand_name in ligand_name_list for receptor_file in receptor_list]
+                    args = [(session_dir, receptor_list[0], ligand_name, next(gpu_cycle)) for ligand_name in ligand_name_list]
                     pool.starmap(run_dynamics, args)
-            if len(receptor_list) < len(ligand_name_list):
-                gpu_cycle = itertools.cycle(gpu_ids)
-                with multiprocessing.Pool(processes=threads) as pool:
-                    args = [(session_dir, receptor_file, ligand_name, next(gpu_cycle)) for receptor_file in receptor_list for ligand_name in ligand_name_list]
-                    pool.starmap(run_dynamics, args)
-        else:
-            os.system(f'cp {receptor} {session_name}')
-            receptor_list = [receptor.split("/")[-1]]
-            receptor_list = [f'{session_name}/{receptor_file}' for receptor_file in receptor_list]
-            with multiprocessing.Pool(processes=binding_threads) as pool:
-                pool.map(prepare_receptor, receptor_list)
-            gpu_cycle = itertools.cycle(gpu_ids)
-            with multiprocessing.Pool(processes=threads) as pool:
-                args = [(session_dir, receptor_list[0], ligand_name, next(gpu_cycle)) for ligand_name in ligand_name_list]
-                pool.starmap(run_dynamics, args)
-            os.system(f"rm {receptor_list[0]}")
+                os.system(f"rm {receptor_list[0]}")
+        except:
+            print("Warning: Some of the ligands or receptors failed...")
 
         os.chdir(session_name)
         os.system("rm -r rec*")
