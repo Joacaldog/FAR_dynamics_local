@@ -86,6 +86,9 @@ if not prod_only:
     if not os.path.exists(session_name):
         os.mkdir(session_name)
     os.chdir(session_name)
+    if not os.path.exists("tmp"):
+        os.mkdir("tmp")
+
 
 def data_seeker(file, startswith, mode):
     if mode == "atoms_number":
@@ -345,13 +348,14 @@ def prepare_ligand(ligand_name):
     charge_ligand = charge_check("lig.sdf")
     print(f'---------------------------------------\nPreparing ligand...')
     print(f"Net charge of ligand is {charge_ligand}")
-    cmd_mol2_to_prepi = f"antechamber -i lig.sdf -fi sdf -o lig.mol2 -fo mol2 -dr n -at gaff2 -c bcc -nc {charge_ligand} -pf Y> antechamber_ligand.log"
+    cmd_mol2_to_prepi = f"antechamber -i lig.sdf -fi sdf -o lig.mol2 -fo mol2 -dr n -at gaff2 -c bcc -nc {charge_ligand} -pf Y> antechamber_ligand.log 2> antechamber_ligand.err"
     os.system(cmd_mol2_to_prepi)
-    cmd_frcmod = "parmchk2 -i lig.mol2 -o lig.frcmod -f mol2 -a Y"
-    os.system(cmd_frcmod)
-    cmd_leap_ligand = "tleap -s -f leap_ligand.in > leap_ligand.out"
-    os.system(cmd_leap_ligand)
-    print(f'Done')
+    if "lig.mol2" in os.listdir("."):
+        cmd_frcmod = "parmchk2 -i lig.mol2 -o lig.frcmod -f mol2 -a Y"
+        os.system(cmd_frcmod)
+        cmd_leap_ligand = "tleap -s -f leap_ligand.in > leap_ligand.out"
+        os.system(cmd_leap_ligand)
+        print(f'Done')
 
 def prepare_peptide(peptide_name):
     format = peptide_name.split(".")[-1]
@@ -364,15 +368,18 @@ def prepare_peptide(peptide_name):
     charge_ligand = charge_check("lig.sdf")
     print(f'---------------------------------------\nPreparing peptide...')
     print(f"Net charge of ligand is {charge_ligand}")
-    cmd_mol2_to_prepi = f"antechamber -i lig.sdf -fi sdf -o lig.mol2 -fo mol2 -dr n -at gaff2 -c bcc -nc {charge_ligand} -pf Y> antechamber_peptide.log"
+    cmd_mol2_to_prepi = f"antechamber -i lig.sdf -fi sdf -o lig.mol2 -fo mol2 -dr n -at gaff2 -c bcc -nc {charge_ligand} -pf Y> antechamber_peptide.log 2> antechamber_peptide.err"
     os.system(cmd_mol2_to_prepi)
-    cmd_frcmod = "parmchk2 -i lig.mol2 -o lig.frcmod -f mol2 -a Y"
-    os.system(cmd_frcmod)
-    cmd_leap_ligand = "tleap -s -f leap_ligand.in > leap_peptide.out"
-    os.system(cmd_leap_ligand)
-    print("Done")
+    if "lig.mol2" in os.listdir("."):
+        cmd_frcmod = "parmchk2 -i lig.mol2 -o lig.frcmod -f mol2 -a Y"
+        os.system(cmd_frcmod)
+        cmd_leap_ligand = "tleap -s -f leap_ligand.in > leap_peptide.out"
+        os.system(cmd_leap_ligand)
+        print("Done")
 
 def prepare_receptor(receptor_file):
+    print(f'---------------------------------------\nPreparing receptor...')
+    os.chdir(f'{session_name}/tmp/')
     receptor_name = receptor_file.split('/')[-1].replace(".pdb", "")
     receptor_folder = f"rec_{receptor_name}"
     if not os.path.exists(receptor_folder):
@@ -395,7 +402,7 @@ def prepare_receptor(receptor_file):
         charge_cofactor = charge_check("cofactor.sdf")
         print(f'---------------------------------------\nPreparing cofactor...')
         print(f"Net charge of cofactor is {charge_cofactor}")
-        cmd_mol2_to_prepi = f"antechamber -i cofactor.sdf -fi sdf -o cofactor.mol2 -fo mol2 -at gaff2 -c bcc -nc {charge_cofactor} -pf Y> antechamber_cofactor.log"
+        cmd_mol2_to_prepi = f"antechamber -i cofactor.sdf -fi sdf -o cofactor.mol2 -fo mol2 -at gaff2 -c bcc -nc {charge_cofactor} -pf Y> antechamber_cofactor.log 2>antechamber_cofactor.err"
         os.system(cmd_mol2_to_prepi)
         cmd_frcmod = "parmchk2 -i cofactor.mol2 -o cofactor.frcmod -f mol2 -a Y"
         os.system(cmd_frcmod)
@@ -420,79 +427,83 @@ def run_dynamics(session_dir, receptor_file, ligand_name, gpu_num):
     os.chdir(session_dir)
     ligand_folder = f'run_{ligand_name.replace(".sdf", "").replace(".pdb", "")}'
     os.chdir(ligand_folder)
-    receptor_name = receptor_file.split('/')[-1].replace(".pdb", "")
-    receptor_folder = f"rec_{receptor_name}"
-    os.system(f"cp -r ../{receptor_folder} .")
-    os.chdir(receptor_folder)
-    os.system(f"cp ../lig.* .")
-    # if ligand_type:
-    if cofactor_folder != None:
-        os.system(f"cp {in_folder}/cofactor/*ligand* .")
-        print(f'---------------------------------------\nPreparing complex with cofactor...')
-        cmd_leap = "tleap -s -f leap_commands_ligand_cofactor_prot.in > leap_lig_cofactor_prot.out"
-        os.system(cmd_leap)
-        print('Done')
-    if cofactor_folder == None:
-        print(f'---------------------------------------\nPreparing complex...')
-        cmd_leap = "tleap -s -f leap_commands_ligand_prot.in > leap_lig_prot.out"
-        os.system(cmd_leap)
-        print('Done')
-    parminfo_complex = "cpptraj complex-no_water.prmtop -i parminfo.in > parminfo_complex.out"
-    os.system(parminfo_complex)
-    molinfo = "cpptraj complex-no_water.prmtop -i molinfo.in > molinfo_complex.out"
-    os.system(molinfo)
-    residues_number_prot = data_seeker("molinfo_complex.out", "residues", "residues_number_prot")
-    residues_number = data_seeker("parminfo_complex.out", "residues", "residues_number")
-    mod_in_file(residues_number, residues_number_prot)
-    parminfo = "cpptraj complex_solvated.prmtop -i parminfo.in > parminfo_solvated.out"
-    os.system(parminfo)
-    atoms_number = data_seeker("parminfo_solvated.out", "Topology", "atoms_number")
-    atom_extract_info = "cpptraj complex-no_water.prmtop -i molinfo.in > molinfo_no_water.out"
-    os.system(atom_extract_info)
-    atoms_data = data_seeker("molinfo_no_water.out", "None", "atoms_data")
-    atoms_data.append(atoms_number)
-    extract_coords_mod("extract_coords.mmpbsa", atoms_data)
-    if not os.path.exists("coords"):
-        os.mkdir("coords")
-    if not os.path.exists("FAR_results"):
-        os.mkdir("FAR_results")
-    print(f'---------------------------------------\nRunning minimizations...')
-    os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_num)
-    tmux_send_run = f'python3 run_commands.py FAR_commands.txt'
-    os.system(tmux_send_run)
-    os.system("cpptraj -i get_min_complex.in")
-    convert_trj3 = f'cpptraj -p complex_solvated.prmtop -y min3.rst -x min3.trj'
-    os.system(convert_trj3)
-    extrac_coords_cmd = f'$AMBERHOME/bin/mm_pbsa.pl extract_coords_mod.mmpbsa 1> extract_coords.log 2>extract_coords.err'
-    os.system(extrac_coords_cmd)
-    print('Done')
-    print(f'---------------------------------------\nCalculating binding affinity')
-    bindingE_cmd = f'$AMBERHOME/bin/mm_pbsa.pl binding_energy.mmpbsa > binding_energy.log'
-    os.system(bindingE_cmd)
-    print('Done')
-    os.system("mv min_complex.pdb FAR_results")
-    os.system(f'mv snapshot* FAR_results')
-    os.system(f'mv coords extract_coords.err extract_coords.log binding_energy.log FAR_results; mkdir coords')
-    #Here starts prod commands
-    if prod:
-        os.system(f"cp {in_folder}/prod/* .")
-        extract_coords_mod("extract_coords_prod.mmpbsa", atoms_data)
-        mod_in_file_prod(residues_number, atoms_data)
-        mod_prod(time_prod)
-        print(f'---------------------------------------\nRunning molecular dynamics...')
-        tmux_send_run2 = f'python3 run_commands.py commands.txt'
-        os.system(tmux_send_run2)
-        convert_trj = f'cpptraj -p complex_solvated.prmtop -y prod.mdcrd -x prod.trj'
-        os.system(convert_trj)
-        remove_wat_cmd = f'cpptraj -i remove_water_prod_mdcrd_mod.in'
-        os.system(remove_wat_cmd)
-        os.system(f'cpptraj -i measure_prod_rmsd_mod.in')
-        os.system(f'cpptraj -i measure_prod_ligand_rmsf_mod.in')
-        extrac_coords_cmd = f'$AMBERHOME/bin/mm_pbsa.pl extract_coords_prod_mod.mmpbsa 1> extract_coords_prod.log 2>extract_coords_prod.err'
+    if "lig.mol2" in os.listdir("."):
+        receptor_name = receptor_file.split('/')[-1].replace(".pdb", "")
+        receptor_folder = f"rec_{receptor_name}"
+        os.system(f"cp -r ../tmp/{receptor_folder} .")
+        os.chdir(receptor_folder)
+        os.system(f"cp ../lig.* .")
+        if cofactor_folder != None:
+            os.system(f"cp {in_folder}/cofactor/*ligand* .")
+            print(f'---------------------------------------\nPreparing complex with cofactor...')
+            cmd_leap = "tleap -s -f leap_commands_ligand_cofactor_prot.in > leap_lig_cofactor_prot.out"
+            os.system(cmd_leap)
+            print('Done')
+        if cofactor_folder == None:
+            print(f'---------------------------------------\nPreparing complex...')
+            cmd_leap = "tleap -s -f leap_commands_ligand_prot.in > leap_lig_prot.out"
+            os.system(cmd_leap)
+            print('Done')
+        parminfo_complex = "cpptraj complex-no_water.prmtop -i parminfo.in > parminfo_complex.out"
+        os.system(parminfo_complex)
+        molinfo = "cpptraj complex-no_water.prmtop -i molinfo.in > molinfo_complex.out"
+        os.system(molinfo)
+        residues_number_prot = data_seeker("molinfo_complex.out", "residues", "residues_number_prot")
+        residues_number = data_seeker("parminfo_complex.out", "residues", "residues_number")
+        mod_in_file(residues_number, residues_number_prot)
+        parminfo = "cpptraj complex_solvated.prmtop -i parminfo.in > parminfo_solvated.out"
+        os.system(parminfo)
+        atoms_number = data_seeker("parminfo_solvated.out", "Topology", "atoms_number")
+        atom_extract_info = "cpptraj complex-no_water.prmtop -i molinfo.in > molinfo_no_water.out"
+        os.system(atom_extract_info)
+        atoms_data = data_seeker("molinfo_no_water.out", "None", "atoms_data")
+        atoms_data.append(atoms_number)
+        extract_coords_mod("extract_coords.mmpbsa", atoms_data)
+        if not os.path.exists("coords"):
+            os.mkdir("coords")
+        if not os.path.exists("FAR_results"):
+            os.mkdir("FAR_results")
+        print(f'---------------------------------------\nRunning minimizations...')
+        os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_num)
+        tmux_send_run = f'python3 run_commands.py FAR_commands.txt'
+        os.system(tmux_send_run)
+        os.system("cpptraj -i get_min_complex.in")
+        convert_trj3 = f'cpptraj -p complex_solvated.prmtop -y min3.rst -x min3.trj'
+        os.system(convert_trj3)
+        extrac_coords_cmd = f'$AMBERHOME/bin/mm_pbsa.pl extract_coords_mod.mmpbsa 1> extract_coords.log 2>extract_coords.err'
         os.system(extrac_coords_cmd)
-        bindingE_cmd = f'$AMBERHOME/bin/mm_pbsa.pl binding_energy_prod_mod.mmpbsa > binding_energy_prod.log'
+        print('Done')
+        print(f'---------------------------------------\nCalculating binding affinity')
+        bindingE_cmd = f'$AMBERHOME/bin/mm_pbsa.pl binding_energy.mmpbsa > binding_energy.log'
         os.system(bindingE_cmd)
-    print("FAR protocol finished")
+        print('Done')
+        os.system("mv min_complex.pdb FAR_results")
+        os.system(f'mv snapshot* FAR_results')
+        os.system(f'mv coords extract_coords.err extract_coords.log binding_energy.log FAR_results; mkdir coords')
+        #Here starts prod commands
+        if prod:
+            os.system(f"cp {in_folder}/prod/* .")
+            extract_coords_mod("extract_coords_prod.mmpbsa", atoms_data)
+            mod_in_file_prod(residues_number, atoms_data)
+            mod_prod(time_prod)
+            print(f'---------------------------------------\nRunning molecular dynamics...')
+            tmux_send_run2 = f'python3 run_commands.py commands.txt'
+            os.system(tmux_send_run2)
+            convert_trj = f'cpptraj -p complex_solvated.prmtop -y prod.mdcrd -x prod.trj'
+            os.system(convert_trj)
+            remove_wat_cmd = f'cpptraj -i remove_water_prod_mdcrd_mod.in'
+            os.system(remove_wat_cmd)
+            os.system(f'cpptraj -i measure_prod_rmsd_mod.in')
+            os.system(f'cpptraj -i measure_prod_ligand_rmsf_mod.in')
+            extrac_coords_cmd = f'$AMBERHOME/bin/mm_pbsa.pl extract_coords_prod_mod.mmpbsa 1> extract_coords_prod.log 2>extract_coords_prod.err'
+            os.system(extrac_coords_cmd)
+            bindingE_cmd = f'$AMBERHOME/bin/mm_pbsa.pl binding_energy_prod_mod.mmpbsa > binding_energy_prod.log'
+            os.system(bindingE_cmd)
+        print("FAR protocol finished")
+    else:
+        print(f"failed {ligand_name}")
+        os.system("mv sqm.out sqm.err")
+        os.system(f"mv ../{ligand_folder} ../{ligand_folder}_failed")
 
 def extract_SDF(ligand):
     ligand_name_list = []
@@ -589,21 +600,21 @@ if __name__ == '__main__':
                         args = [(session_dir, receptor_file, ligand_name, next(gpu_cycle)) for receptor_file in receptor_list for ligand_name in ligand_name_list]
                         pool.starmap(run_dynamics, args)
             else:
-                os.system(f'cp {receptor} {session_name}')
+
+                os.system(f'cp {receptor} {session_name}/tmp')
                 receptor_list = [receptor.split("/")[-1]]
-                receptor_list = [f'{session_name}/{receptor_file}' for receptor_file in receptor_list]
+                receptor_list = [f'{session_name}/tmp/{receptor_file}' for receptor_file in receptor_list]
                 with multiprocessing.Pool(processes=binding_threads) as pool:
                     pool.map(prepare_receptor, receptor_list)
                 gpu_cycle = itertools.cycle(gpu_ids)
                 with multiprocessing.Pool(processes=threads) as pool:
                     args = [(session_dir, receptor_list[0], ligand_name, next(gpu_cycle)) for ligand_name in ligand_name_list]
                     pool.starmap(run_dynamics, args)
-                os.system(f"rm {receptor_list[0]}")
         except:
             print("Warning: Some of the ligands or receptors failed...")
 
         os.chdir(session_name)
-        os.system("rm -r rec*")
+        os.system("rm -r tmp")
         table_generator()
 
     if prod_only:
