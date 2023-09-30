@@ -86,6 +86,7 @@ if not prod_only:
     if not os.path.exists(session_name):
         os.mkdir(session_name)
     os.chdir(session_name)
+    session_dir = os.getcwd()
     if not os.path.exists("tmp"):
         os.mkdir("tmp")
 
@@ -279,6 +280,7 @@ def charge_check(file):
     supplier = Chem.SDMolSupplier(chg_file)
     os.system(f'rm {chg_file}')
     # Iterate over each molecule in the SDF file
+    net_charge = 0
     for mol in supplier:
         if mol is None:
             continue
@@ -289,12 +291,11 @@ def charge_check(file):
         # Get the formal charges for each atom in the molecule
         formal_charges = [atom.GetFormalCharge() for atom in mol.GetAtoms()]
 
-        net_charge = 0
         for charge in formal_charges:
             charge = int(charge)
             net_charge += charge
 
-        return net_charge
+    return net_charge
 
 def mod_prod(new_nstlim):
     new_nstlim = int(int(new_nstlim) * 1000 / 0.002)
@@ -342,7 +343,7 @@ def mod_prod(new_nstlim):
 def prepare_ligand(ligand_name):
     cp_in_files = f"cp {in_folder}/lig_or_pep/leap_ligand.in ."
     os.system(cp_in_files)
-    cp_sdf = f"mv ../{ligand_name} ."
+    cp_sdf = f"mv ../tmp/{ligand_name} ."
     os.system(cp_sdf)
     os.system(f"mv {ligand_name} lig.sdf")
     charge_ligand = charge_check("lig.sdf")
@@ -361,7 +362,7 @@ def prepare_peptide(peptide_name):
     format = peptide_name.split(".")[-1]
     peptide_name = peptide_name.split(".")[0]
     os.system(f"cp {in_folder}/lig_or_pep/leap_ligand.in .")
-    os.system(f"mv ../{peptide_name}.{format} .")
+    os.system(f"mv ../tmp/{peptide_name}.{format} .")
     os.system(f'mv {peptide_name}.{format} og_lig.pdb')
     os.system(f"pdb4amber -i og_lig.pdb -y --add-missing-atoms --reduce -d -p -o lig.pdb")
     os.system(f'obabel -ipdb lig.pdb -o sdf -O lig.sdf')
@@ -507,7 +508,7 @@ def run_dynamics(session_dir, receptor_file, ligand_name, gpu_num):
 
 def extract_SDF(ligand):
     ligand_name_list = []
-    with open(ligand) as io:
+    with open(f'tmp/{ligand}') as io:
         line_list = io.readlines()
         indexes = []
         for idx, line in enumerate(line_list):
@@ -518,7 +519,7 @@ def extract_SDF(ligand):
             start = 0 if i == 0 else indexes[i - 1] + 1
             end = indexes[i]
             output_file = f'{line_list[start].replace("|", "_").strip().replace(".pdb", "")}.sdf'
-            with open(output_file, "w") as of:
+            with open(f'tmp/{output_file}', "w") as of:
                 data_list = line_list[start:end + 1]
                 for line in data_list:
                     of.write(line)
@@ -563,24 +564,22 @@ if __name__ == '__main__':
                 ligand_name_list = []
                 for file in os.listdir(ligand):
                     format = file.split(".")[-1]
+                    os.system(f'cp {ligand}/{file} tmp/')
                     if format =="pdb":
-                        os.system(f'cp {ligand}/{file} .')
                         ligand_name_list.append(file)
                     if format == "sdf":
                         ligand_name_list = extract_SDF(file)
-                        os.system(f"rm {file}")
-                session_dir = os.getcwd()
+                        os.system(f"rm tmp/{file}")
                 
             else:
-                os.system(f'cp {ligand} .')
+                os.system(f'cp {ligand} tmp/')
                 ligand = ligand.split("/")[-1]
                 format = ligand.split(".")[-1]
                 if format == "sdf":
                     ligand_name_list = extract_SDF(ligand)
-                    os.system(f"rm {ligand}")
+                    os.system(f"rm tmp/{ligand}")
                 if format =="pdb":
                     ligand_name_list = [ligand]
-                session_dir = os.getcwd()
 
             if os.path.isdir(receptor):
                 with multiprocessing.Pool(processes=binding_threads) as pool:
