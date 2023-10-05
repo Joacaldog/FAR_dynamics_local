@@ -40,7 +40,7 @@ if not prod_only:
     if peptide_type:
         ligand = os.path.abspath(args.peptide)
     if not ligand_type and not peptide_type:
-        parser.error(f"You must provide ligand (-l) or peptide (-p)")
+        parser.error(f"You must provide ligand (-l) or peptide (-p) \n[if you are running -prod_only you must enter number of nanoseconds to run]")
     receptor = args.receptor
     if receptor:  
         receptor = os.path.abspath(args.receptor)
@@ -502,9 +502,11 @@ def run_dynamics(session_dir, receptor_file, ligand_name, gpu_num):
             os.system(bindingE_cmd)
         print("FAR protocol finished")
     else:
-        print(f"failed {ligand_name}")
+        if not os.path.exists("../failed_ligand"):
+            os.mkdir("../failed_ligand")
+        print(f"failed ligand -> {ligand_name}")
         os.system("mv sqm.out sqm.err")
-        os.system(f"mv ../{ligand_folder} ../{ligand_folder}_failed")
+        os.system(f"mv ../{ligand_folder} ../failed_ligand")
 
 def extract_SDF(ligand):
     ligand_name_list = []
@@ -528,9 +530,9 @@ def extract_SDF(ligand):
 
 def table_generator():
     energy_patch_list = []
-    with open("failed_files.txt", "w") as outf:
-        outf.write("ligand_name\treceptor_name\n")
-        for ligand_folder in next(os.walk("."))[1]:
+    failed_duo = []
+    for ligand_folder in next(os.walk("."))[1]:
+        if "run_" in ligand_folder:
             for receptor_folder in next(os.walk(ligand_folder))[1]:
                 ligand_name = ligand_folder.replace("run_", "")
                 receptor_name = receptor_folder.replace("rec_", "")
@@ -542,8 +544,20 @@ def table_generator():
                         energy_patch = float(energy_value), ligand_name, receptor_name
                         energy_patch_list.append(energy_patch)
                 except:
-                    outf.write(f'{ligand_name}\t{receptor_name}\n')
-                    continue
+                    failed_duo.append((f'{ligand_name}\t{receptor_name}\n'))
+
+
+    if len(os.listdir("failed_ligands")) >= 1 or len(failed_duo)>=1:
+        with open("failed_files.txt", "w") as outf:
+            outf.write("ligand_name\treceptor_name\n")
+            if len(os.listdir("failed_ligands")) >= 1:
+                for ligand_folder in next(os.walk("failed_ligands"))[1]:
+                    ligand_name = ligand_folder.replace("run_", "")
+                    outf.write(f'{ligand_name}\tall_receptors\n')
+            if len(failed_duo)>=1:
+                for failed in failed_duo:
+                    outf.write(failed)
+
 
     sorted_list = sorted(energy_patch_list,key=itemgetter(1))
     if len(sorted_list) >= 1:
