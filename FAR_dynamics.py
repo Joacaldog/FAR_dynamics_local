@@ -70,7 +70,7 @@ if not prod_only:
     if not prod:
         print("Running FAR protocol")
     if prod:
-        threads == len(range(range_GPU_S,range_GPU_E))
+        threads = len(range(range_GPU_S,range_GPU_E))
         print(f"Running FAR protocol and {time_prod}ns of molecular dynamics production with MMPBSA calculation")
 
 if prod_only:
