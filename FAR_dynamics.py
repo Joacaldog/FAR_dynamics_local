@@ -502,11 +502,11 @@ def run_dynamics(session_dir, receptor_file, ligand_name, gpu_num):
             os.system(bindingE_cmd)
         print("FAR protocol finished")
     else:
-        if not os.path.exists("../failed_ligand"):
-            os.mkdir("../failed_ligand")
+        if not os.path.exists("../failed_ligands"):
+            os.mkdir("../failed_ligands")
         print(f"failed ligand -> {ligand_name}")
         os.system("mv sqm.out sqm.err")
-        os.system(f"mv ../{ligand_folder} ../failed_ligand")
+        os.system(f"mv ../{ligand_folder} ../failed_ligands")
 
 def extract_SDF(ligand):
     ligand_name_list = []
