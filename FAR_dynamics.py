@@ -569,6 +569,48 @@ def table_generator():
                 output = f'{energy_value}\t{ligand_name}\t{receptor_name}\n'
                 outfile.write(output)
 
+def table_generator_prod():
+    energy_patch_list = []
+    failed_duo = []
+    for ligand_folder in next(os.walk("."))[1]:
+        if "run_" in ligand_folder:
+            for receptor_folder in next(os.walk(ligand_folder))[1]:
+                ligand_name = ligand_folder.replace("run_", "")
+                receptor_name = receptor_folder.replace("rec_", "")
+                try:
+                    file = f'{ligand_folder}/{receptor_folder}/snapshot_statistics.out'
+                    with open(file) as io:
+                        line = io.readlines()[-1].strip()
+                        energy_value = line.split()[1]
+                        energy_patch = float(energy_value), ligand_name, receptor_name
+                        energy_patch_list.append(energy_patch)
+                except:
+                    failed_duo.append((f'{ligand_name}\t{receptor_name}\n'))
+
+
+    if "failed_ligands" in os.listdir(".") or len(failed_duo)>=1:
+        with open("failed_files_prod.txt", "w") as outf:
+            outf.write("ligand_name\treceptor_name\n")
+            if "failed_ligands" in os.listdir(".") and len(os.listdir("failed_ligands")) >= 1:
+                for ligand_folder in next(os.walk("failed_ligands"))[1]:
+                    ligand_name = ligand_folder.replace("run_", "")
+                    outf.write(f'{ligand_name}\tall_receptors\n')
+            if len(failed_duo)>=1:
+                for failed in failed_duo:
+                    outf.write(failed)
+
+
+    sorted_list = sorted(energy_patch_list,key=itemgetter(1))
+    if len(sorted_list) >= 1:
+        with open("MMPBSA_results.tsv", "w") as outfile:
+            outfile.write('AffinityBindingPred(kcal/mol)\tLigand\tReceptor\n')
+            for binding_data in sorted_list:
+                energy_value = binding_data[0]
+                ligand_name = binding_data[1]
+                receptor_name = binding_data[2]
+                output = f'{energy_value}\t{ligand_name}\t{receptor_name}\n'
+                outfile.write(output)
+
 if __name__ == '__main__':
     gpu_ids = list(range(range_GPU_S,range_GPU_E))
     if not prod_only:
@@ -628,6 +670,8 @@ if __name__ == '__main__':
         os.chdir(session_name)
         os.system("rm -r tmp")
         table_generator()
+        if prod:
+            table_generator_prod()
 
     if prod_only:
         os.environ['CUDA_VISIBLE_DEVICES'] = str(range_GPU_S)
