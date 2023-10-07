@@ -546,8 +546,7 @@ def table_generator():
                 except:
                     failed_duo.append((f'{ligand_name}\t{receptor_name}\n'))
 
-
-    if len(os.listdir("failed_ligands")) >= 1 or len(failed_duo)>=1:
+    if "failed_ligands" in os.listdir("failed_ligands") or len(failed_duo)>=1:
         with open("failed_files.txt", "w") as outf:
             outf.write("ligand_name\treceptor_name\n")
             if len(os.listdir("failed_ligands")) >= 1:
