@@ -546,10 +546,10 @@ def table_generator():
                 except:
                     failed_duo.append((f'{ligand_name}\t{receptor_name}\n'))
 
-    if "failed_ligands" in os.listdir("failed_ligands") or len(failed_duo)>=1:
+    if "failed_ligands" in os.listdir(".") or len(failed_duo)>=1:
         with open("failed_files.txt", "w") as outf:
             outf.write("ligand_name\treceptor_name\n")
-            if len(os.listdir("failed_ligands")) >= 1:
+            if "failed_ligands" in os.listdir(".") and len(os.listdir("failed_ligands")) >= 1:
                 for ligand_folder in next(os.walk("failed_ligands"))[1]:
                     ligand_name = ligand_folder.replace("run_", "")
                     outf.write(f'{ligand_name}\tall_receptors\n')
