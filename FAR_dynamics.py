@@ -623,8 +623,9 @@ if __name__ == '__main__':
                     if format =="pdb":
                         ligand_name_list.append(file)
                     if format == "sdf":
-                        ligand_name_list = extract_SDF(file)
-                        ligand_name_list.append(file)
+                        ligand_name_sdf_list = extract_SDF(file)
+                        for ligand_name_sdf in ligand_name_sdf_list:
+                            ligand_name_list.append(ligand_name_sdf)
                         os.system(f"rm tmp/{file}")
                 
             else:
