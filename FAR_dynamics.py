@@ -250,14 +250,14 @@ def mod_in_file_prod(residues_number, atoms_data):
                 if "rms fit" not in line:
                     io.write(line + "\n")
 
-    rmsd_file = "measure_prod_rmsd.in"
+    rmsd_file = "measure_prod_ligand_rmsd.in"
     with open(f"{rmsd_file.split('.')[0]}_mod.{rmsd_file.split('.')[1]}", "w") as io:
         with open(rmsd_file) as f:
             for line in f.readlines():
                 line = line.strip("\n")
                 if "prod.rmsd" in line:
                     line1 = line.split("@")[0]
-                    io.write(f"{line1}@{start_pep}-{end_pep}\n")
+                    io.write(f"{line1}@{start_pep}-{end_pep}&!@H=\n")
                 if "prod.rmsd" not in line:
                     io.write(line + "\n")
 
@@ -268,10 +268,10 @@ def mod_in_file_prod(residues_number, atoms_data):
                 line = line.strip("\n")
                 if "atomicfluct" in line:
                     line1 = line.split("@")[0]
-                    io.write(f"{line1}@{start_pep}-{end_pep}\n")
+                    io.write(f"{line1}@{start_pep}-{end_pep}&!@H=\n")
                 if "atomicfluct" not in line:
                     io.write(line + "\n")
-    os.system("rm heat.in density.in remove_water_prod_mdcrd.in measure_prod_rmsd.in measure_prod_ligand_rmsf.in")
+    os.system("rm heat.in density.in remove_water_prod_mdcrd.in measure_prod_ligand_rmsd.in measure_prod_ligand_rmsf.in")
 
 def charge_check(file):
 
@@ -494,7 +494,7 @@ def run_dynamics(session_dir, receptor_file, ligand_name, gpu_num):
             os.system(convert_trj)
             remove_wat_cmd = f'cpptraj -i remove_water_prod_mdcrd_mod.in'
             os.system(remove_wat_cmd)
-            os.system(f'cpptraj -i measure_prod_rmsd_mod.in')
+            os.system(f'cpptraj -i measure_prod_ligand_rmsd_mod.in')
             os.system(f'cpptraj -i measure_prod_ligand_rmsf_mod.in')
             extrac_coords_cmd = f'$AMBERHOME/bin/mm_pbsa.pl extract_coords_prod_mod.mmpbsa 1> extract_coords_prod.log 2>extract_coords_prod.err'
             os.system(extrac_coords_cmd)
@@ -692,7 +692,7 @@ if __name__ == '__main__':
         os.system(convert_trj)
         remove_wat_cmd = f'cpptraj -i remove_water_prod_mdcrd_mod.in'
         os.system(remove_wat_cmd)
-        os.system(f'cpptraj -i measure_prod_rmsd_mod.in')
+        os.system(f'cpptraj -i measure_prod_ligand_rmsd_mod.in')
         os.system(f'cpptraj -i measure_prod_ligand_rmsf_mod.in')
         extrac_coords_cmd = f'$AMBERHOME/bin/mm_pbsa.pl extract_coords_prod_mod.mmpbsa 1> extract_coords_prod.log 2>extract_coords_prod.err'
         os.system(extrac_coords_cmd)
