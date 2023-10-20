@@ -185,7 +185,7 @@ def mod_in_file(residues_number, residues_number_prot):
                     line = line.strip("\n")
                     if "restraintmask" in line:
                         line1 = line.split("restraintmask=")[0]
-                        io.write(f"{line1}restraintmask=':1-{residues_number}!@H=',\n")
+                        io.write(f"{line1}restraintmask=':1-{residues_number}&!@H=',\n")
                     if "restraintmask" not in line:
                         io.write(line + "\n")
 
@@ -198,9 +198,9 @@ def mod_in_file(residues_number, residues_number_prot):
                     if "restraintmask" in line:
                         line1 = line.split("restraintmask=")[0]
                         if cofactor_folder != None:
-                            io.write(f"{line1}restraintmask=':1-{int(residues_number_prot)-1}!@H=',\n")
+                            io.write(f"{line1}restraintmask=':1-{int(residues_number_prot)-1}&!@H=',\n")
                         if cofactor_folder == None:
-                            io.write(f"{line1}restraintmask=':1-{residues_number_prot}!@H=',\n")
+                            io.write(f"{line1}restraintmask=':1-{residues_number_prot}&!@H=',\n")
                     if "restraintmask" not in line:
                         io.write(line + "\n")
 
@@ -213,9 +213,9 @@ def mod_in_file(residues_number, residues_number_prot):
                     if "restraintmask" in line:
                         line1 = line.split("restraintmask=")[0]
                         if cofactor_folder != None:
-                            io.write(f"{line1}restraintmask=':1-{int(residues_number_prot)-1}@CA,C,N,O',\n")
+                            io.write(f"{line1}restraintmask=':1-{int(residues_number_prot)-1}&@CA,C,N,O',\n")
                         if cofactor_folder == None:
-                            io.write(f"{line1}restraintmask=':1-{residues_number_prot}@CA,C,N,O',\n")
+                            io.write(f"{line1}restraintmask=':1-{residues_number_prot}&@CA,C,N,O',\n")
                     if "restraintmask" not in line:
                         io.write(line + "\n")
     os.system("rm min.in min2.in min3.in")
@@ -533,18 +533,23 @@ def table_generator():
     failed_duo = []
     for ligand_folder in next(os.walk("."))[1]:
         if "run_" in ligand_folder:
-            for receptor_folder in next(os.walk(ligand_folder))[1]:
-                ligand_name = ligand_folder.replace("run_", "")
-                receptor_name = receptor_folder.replace("rec_", "")
-                try:
-                    file = f'{ligand_folder}/{receptor_folder}/FAR_results/snapshot_statistics.out'
-                    with open(file) as io:
-                        line = io.readlines()[-1].strip()
-                        energy_value = line.split()[1]
-                        energy_patch = float(energy_value), ligand_name, receptor_name
-                        energy_patch_list.append(energy_patch)
-                except:
-                    failed_duo.append((f'{ligand_name}\t{receptor_name}\n'))
+            ligand_name = ligand_folder.replace("run_", "")
+            receptor_folders = next(os.walk(ligand_folder))[1]
+            if receptor_folders:
+                for receptor_folder in receptor_folders:
+                    receptor_name = receptor_folder.replace("rec_", "")
+                    try:
+                        file = f'{ligand_folder}/{receptor_folder}/FAR_results/snapshot_statistics.out'
+                        with open(file) as io:
+                            line = io.readlines()[-1].strip()
+                            energy_value = line.split()[1]
+                            energy_patch = float(energy_value), ligand_name, receptor_name
+                            energy_patch_list.append(energy_patch)
+                    except FileNotFoundError:
+                        failed_duo.append((f'{ligand_name}\t{receptor_name}\n'))
+            else:
+                # Si no hay carpetas de receptor, agrega a la lista de fallo
+                failed_duo.append((f'{ligand_name}\t<sin receptor>\n'))
 
     if "failed_ligands" in os.listdir(".") or len(failed_duo)>=1:
         with open("failed_files.txt", "w") as outf:
@@ -574,18 +579,23 @@ def table_generator_prod():
     failed_duo = []
     for ligand_folder in next(os.walk("."))[1]:
         if "run_" in ligand_folder:
-            for receptor_folder in next(os.walk(ligand_folder))[1]:
-                ligand_name = ligand_folder.replace("run_", "")
-                receptor_name = receptor_folder.replace("rec_", "")
-                try:
-                    file = f'{ligand_folder}/{receptor_folder}/snapshot_statistics.out'
-                    with open(file) as io:
-                        line = io.readlines()[-1].strip()
-                        energy_value = line.split()[1]
-                        energy_patch = float(energy_value), ligand_name, receptor_name
-                        energy_patch_list.append(energy_patch)
-                except:
-                    failed_duo.append((f'{ligand_name}\t{receptor_name}\n'))
+            ligand_name = ligand_folder.replace("run_", "")
+            receptor_folders = next(os.walk(ligand_folder))[1]
+            if receptor_folders:
+                for receptor_folder in receptor_folders:
+                    receptor_name = receptor_folder.replace("rec_", "")
+                    try:
+                        file = f'{ligand_folder}/{receptor_folder}/snapshot_statistics.out'
+                        with open(file) as io:
+                            line = io.readlines()[-1].strip()
+                            energy_value = line.split()[1]
+                            energy_patch = float(energy_value), ligand_name, receptor_name
+                            energy_patch_list.append(energy_patch)
+                    except FileNotFoundError:
+                        failed_duo.append((f'{ligand_name}\t{receptor_name}\n'))
+            else:
+                # Si no hay carpetas de receptor, agrega a la lista de fallo
+                failed_duo.append((f'{ligand_name}\t<sin receptor>\n'))
 
 
     if "failed_ligands" in os.listdir(".") or len(failed_duo)>=1:
@@ -699,3 +709,4 @@ if __name__ == '__main__':
         bindingE_cmd = f'$AMBERHOME/bin/mm_pbsa.pl binding_energy_prod_mod.mmpbsa > binding_energy_prod.log'
         os.system(bindingE_cmd)
         print("FAR protocol finished")
+        table_generator_prod()
