@@ -396,7 +396,7 @@ def prepare_ligand(ligand_name):
                 if "lig.mol2" in os.listdir("."):
                     cmd_frcmod = "parmchk2 -i lig.mol2 -o lig.frcmod -f mol2 -s gaff2 -a Y"
                     os.system(cmd_frcmod)
-                    cmd_leap_ligand = "/opt/biology/amber20/bin/tleap -s -f leap_ligand.in > leap_peptide.out"
+                    cmd_leap_ligand = "/opt/biology/amber20/bin/tleap -s -f leap_ligand.in > leap_ligand.out"
                     os.system(cmd_leap_ligand)
                     print("Done")
                     break
@@ -409,7 +409,7 @@ def prepare_ligand(ligand_name):
                     if "lig.mol2" in os.listdir("."):
                         cmd_frcmod = "parmchk2 -i lig.mol2 -o lig.frcmod -f mol2 -s gaff2 -a Y"
                         os.system(cmd_frcmod)
-                        cmd_leap_ligand = "/opt/biology/amber20/bin/tleap -s -f leap_ligand.in > leap_peptide.out"
+                        cmd_leap_ligand = "/opt/biology/amber20/bin/tleap -s -f leap_ligand.in > leap_ligand.out"
                         os.system(cmd_leap_ligand)
                         print("Done")
                         break
