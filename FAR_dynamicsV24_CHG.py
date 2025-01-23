@@ -376,8 +376,8 @@ def prepare_ligand(ligand_name):
     cp_sdf = f"mv ../tmp/{ligand_name} ."
     os.system(cp_sdf)
     os.system(f"mv {ligand_name} lig.sdf")
+    charge_ligand = charge_check("lig.sdf")
     os.system(f'obabel -isdf lig.sdf -o mol2 -O pre_lig.mol2')
-    charge_ligand = charge_check("pre_lig.mol2")
     print(f'---------------------------------------\nPreparing ligand...')
     print(f"Net charge of ligand is {charge_ligand}")
     cmd_mol2_to_prepi = f"antechamber -i pre_lig.mol2 -fi mol2 -o lig.mol2 -fo mol2 -dr n -at gaff2 -rn LIG -c bcc -nc {charge_ligand} -pf Y> antechamber_ligand.log 2> antechamber_ligand.err"
@@ -481,7 +481,7 @@ def prepare_receptor(receptor_file):
     os.system(f"cp {in_folder}/frcmod/* .")
     os.system(f"cp {receptor_file} .")
     os.system(f"mv {receptor_name}.pdb og_receptor.pdb")
-    os.system(f"pdb4amber -i og_receptor.pdb -y --add-missing-atoms --most-populous --reduce -d -p -o receptor_mod.pdb")
+    os.system(f"pdb4amber -i og_receptor.pdb --no-conect -y --add-missing-atoms --most-populous --reduce -d -p -o receptor_mod.pdb")
     if cofactor_folder != None:
         os.system(f"cp {in_folder}/cofactor/leap_cofactor.in .")
         if os.path.isdir(cofactor_folder):
