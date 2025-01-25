@@ -49,12 +49,13 @@ if not prod_only:
     if peptide_type:
         ligand = os.path.abspath(args.peptide)
     if not ligand_type and not peptide_type:
-        parser.error(f"You must provide ligand (-l) or peptide (-p) \n[if you are running -prod_only you must enter number of nanoseconds to run]")
+        parser.error(
+            f"You must provide ligand (-l) or peptide (-p) \n[if you are running -prod_only you must enter number of nanoseconds to run]")
     receptor = args.receptor
-    if receptor:  
+    if receptor:
         receptor = os.path.abspath(args.receptor)
     if not receptor:
-        parser.error(f"You must provide receptor (-r)")  
+        parser.error(f"You must provide receptor (-r)")
     complex_file = f'{ligand.replace(".sdf", "")}'
     cofactor_folder = args.cofactor
     prefix_cofactor = args.cofactor_prefix
@@ -63,7 +64,8 @@ if not prod_only:
     if cofactor_folder:
         cofactor_folder = os.path.abspath(cofactor_folder)
         if prefix_cofactor == None and os.path.isdir(cofactor_folder):
-            parser.error(f"if you provided a cofactor's folder you must enter a prefix that will be used to find the files (e.g.: -cop SAM_ ---will-find--> SAM_receptorName.sdf)")
+            parser.error(
+                f"if you provided a cofactor's folder you must enter a prefix that will be used to find the files (e.g.: -cop SAM_ ---will-find--> SAM_receptorName.sdf)")
 if prod_only:
     time_prod = prod_only
 threads = args.threads
@@ -76,13 +78,16 @@ range_GPU_E = int(range_GPU.split("-")[1])
 
 if not prod_only:
     if not prod:
-        print(f"Running FAR protocol (pH to calculate partial charges is {pH})")
+        print(
+            f"Running FAR protocol (pH to calculate partial charges is {pH})")
     if prod:
-        threads = len(range(range_GPU_S,range_GPU_E))
-        print(f"Running FAR protocol and {time_prod}ns of molecular dynamics production with MMPBSA calculation")
+        threads = len(range(range_GPU_S, range_GPU_E))
+        print(
+            f"Running FAR protocol and {time_prod}ns of molecular dynamics production with MMPBSA calculation")
 
 if prod_only:
-    print(f"Running only {time_prod}ns of molecular dynamics production with MMPBSA calculation")
+    print(
+        f"Running only {time_prod}ns of molecular dynamics production with MMPBSA calculation")
 
 if not prod_only:
     initial_path = os.getcwd()
@@ -107,7 +112,7 @@ def data_seeker(file, startswith, mode):
                 if line.startswith(startswith):
                     data = line.split()[3]
                     return data
-                
+
     if mode == "residues_number":
         with open(file) as f:
             for line in f.readlines():
@@ -115,7 +120,7 @@ def data_seeker(file, startswith, mode):
                 if startswith in line:
                     data = line.split()[0]
                     return data
-                
+
     if mode == "residues_number_prot":
         mol_line_list = []
         with open(file) as f:
@@ -128,7 +133,7 @@ def data_seeker(file, startswith, mode):
         line = mol_line_list[-2]
         end_res_prot = int(line.split()[4])
         return end_res_prot
-        
+
     if mode == "atoms_data":
         mol_line_list = []
         with open(file) as f:
@@ -143,16 +148,17 @@ def data_seeker(file, startswith, mode):
             end_atom_number = line.split()[1]
             data.append(end_atom_number)
         return data
-                
+
+
 def extract_coords_mod(file, atoms_data):
     with open(f"{file.split('.')[0]}_mod.{file.split('.')[1]}", "w") as io:
         with open(file) as f:
             atoms_data = [int(x) for x in atoms_data]
             total_atoms_solvated = str(atoms_data[-1])
             end_rec = atoms_data[0]
-            rec_groups_number = len(atoms_data) -2
-            start_pep = sum(atoms_data[:-2])+1
-            end_pep = sum(atoms_data[:-2])+atoms_data[-2]
+            rec_groups_number = len(atoms_data) - 2
+            start_pep = sum(atoms_data[:-2]) + 1
+            end_pep = sum(atoms_data[:-2]) + atoms_data[-2]
             if rec_groups_number >= 2:
                 extra_rec_groups = atoms_data[1:-2]
 
@@ -160,23 +166,25 @@ def extract_coords_mod(file, atoms_data):
             for line in f.readlines():
                 line = line.strip("\n")
                 if line.startswith("NTOTAL"):
-                    line=" ".join(line.split(" ")[:-1]) + " " + total_atoms_solvated + '\n'
+                    line = " ".join(line.split(
+                        " ")[:-1]) + " " + total_atoms_solvated + '\n'
                     io.write(line)
                 if line.startswith("LSTART"):
-                    line=f'{" ".join(line.split(" ")[:-1])} {start_pep}\n'
+                    line = f'{" ".join(line.split(" ")[:-1])} {start_pep}\n'
                     io.write(line)
                 if line.startswith("LSTOP"):
-                    line=f'{" ".join(line.split(" ")[:-1])} {end_pep}\n'
+                    line = f'{" ".join(line.split(" ")[:-1])} {end_pep}\n'
                     io.write(line)
                 if "NUMBER_REC_GROUPS" in line:
                     io.write(f"NUMBER_REC_GROUPS       {rec_groups_number}\n")
                 if "RSTOP" in line:
-                    line=f"RSTOP                   {end_rec}\n"
+                    line = f"RSTOP                   {end_rec}\n"
                     io.write(line)
-                    if rec_groups_number >=2:
+                    if rec_groups_number >= 2:
                         rec_atoms = end_rec
                         for rec in extra_rec_groups:
-                            io.write(f"RSTART                  {rec_atoms + 1}\n")
+                            io.write(
+                                f"RSTART                  {rec_atoms + 1}\n")
                             rec_atoms += int(rec)
                             io.write(f"RSTOP                   {rec_atoms}\n")
                 if not "NTOTAL" in line and not "LSTART" in line and not "LSTOP" in line and not "NUMBER_REC_GROUPS" in line and not "RSTOP" in line:
@@ -193,7 +201,8 @@ def mod_in_file(residues_number, residues_number_prot):
                     line = line.strip("\n")
                     if "restraintmask" in line:
                         line1 = line.split("restraintmask=")[0]
-                        io.write(f"{line1}restraintmask=':1-{residues_number}&!@H=',\n")
+                        io.write(
+                            f"{line1}restraintmask=':1-{residues_number}&!@H=',\n")
                     if "restraintmask" not in line:
                         io.write(line + "\n")
 
@@ -206,9 +215,11 @@ def mod_in_file(residues_number, residues_number_prot):
                     if "restraintmask" in line:
                         line1 = line.split("restraintmask=")[0]
                         if cofactor_folder != None:
-                            io.write(f"{line1}restraintmask=':1-{int(residues_number_prot)-1}&!@H=',\n")
+                            io.write(
+                                f"{line1}restraintmask=':1-{int(residues_number_prot)-1}&!@H=',\n")
                         if cofactor_folder == None:
-                            io.write(f"{line1}restraintmask=':1-{residues_number_prot}&!@H=',\n")
+                            io.write(
+                                f"{line1}restraintmask=':1-{residues_number_prot}&!@H=',\n")
                     if "restraintmask" not in line:
                         io.write(line + "\n")
 
@@ -221,20 +232,23 @@ def mod_in_file(residues_number, residues_number_prot):
                     if "restraintmask" in line:
                         line1 = line.split("restraintmask=")[0]
                         if cofactor_folder != None:
-                            io.write(f"{line1}restraintmask=':1-{int(residues_number_prot)-1}&@CA,C,N,O',\n")
+                            io.write(
+                                f"{line1}restraintmask=':1-{int(residues_number_prot)-1}&@CA,C,N,O',\n")
                         if cofactor_folder == None:
-                            io.write(f"{line1}restraintmask=':1-{residues_number_prot}&@CA,C,N,O',\n")
+                            io.write(
+                                f"{line1}restraintmask=':1-{residues_number_prot}&@CA,C,N,O',\n")
                     if "restraintmask" not in line:
                         io.write(line + "\n")
     os.system("rm min.in min2.in min3.in")
+
 
 def mod_in_file_prod(residues_number, atoms_data):
     atoms_data = [int(x) for x in atoms_data]
     total_atoms_solvated = str(atoms_data[-1])
     end_rec = atoms_data[0]
-    rec_groups_number = len(atoms_data) -2
-    start_pep = sum(atoms_data[:-2])+1
-    end_pep = sum(atoms_data[:-2])+atoms_data[-2]
+    rec_groups_number = len(atoms_data) - 2
+    start_pep = sum(atoms_data[:-2]) + 1
+    end_pep = sum(atoms_data[:-2]) + atoms_data[-2]
     files = ["heat.in", "density.in"]
     for file in files:
         with open(f"{file.split('.')[0]}_mod.{file.split('.')[1]}", "w") as io:
@@ -281,6 +295,7 @@ def mod_in_file_prod(residues_number, atoms_data):
                     io.write(line + "\n")
     os.system("rm heat.in density.in remove_water_prod_mdcrd.in measure_prod_ligand_rmsd.in measure_prod_ligand_rmsf.in")
 
+
 def charge_check(file):
     net_charge = 0
     with open(file) as f:
@@ -293,23 +308,23 @@ def charge_check(file):
                     net_charge += charge
     return net_charge
 
+    # chg_file = f'chg_{file}'
+    # os.system(f'obabel -imol2 {file} -o mol2 -O {chg_file} -p {pH}')
+    # supplier = Chem.MolFromMol2File(chg_file, sanitize=False, removeHs=False)
+    # os.system(f'rm {chg_file}')
+    # # Iterate over each molecule in the SDF file
+    # if supplier is None:
+    #     return None
 
-    chg_file = f'chg_{file}'
-    os.system(f'obabel -imol2 {file} -o mol2 -O {chg_file} -p {pH}')
-    supplier = Chem.MolFromMol2File(chg_file, sanitize=False, removeHs=False)
-    os.system(f'rm {chg_file}')
-    # Iterate over each molecule in the SDF file
-    if supplier is None:
-        return None
+    # # Calculate formal charges
+    # AllChem.ComputeGasteigerCharges(supplier)
 
-    # Calculate formal charges
-    AllChem.ComputeGasteigerCharges(supplier)
+    # # Get the formal charges for each atom in the molecule
+    # formal_charges = [atom.GetFormalCharge() for atom in supplier.GetAtoms()]
 
-    # Get the formal charges for each atom in the molecule
-    formal_charges = [atom.GetFormalCharge() for atom in supplier.GetAtoms()]
+    # net_charge = sum(formal_charges)
+    # return net_charge
 
-    net_charge = sum(formal_charges)
-    return net_charge
 
 def mod_prod(new_nstlim):
     new_nstlim = int(int(new_nstlim) * 1000 / 0.002)
@@ -331,7 +346,7 @@ def mod_prod(new_nstlim):
     with open('prod_mod.in', 'w') as file:
         file.writelines(lines)
 
-    os.system(f'mv extract_coords_prod_mod.mmpbsa extract_coords_prod.mmpbsa') 
+    os.system(f'mv extract_coords_prod_mod.mmpbsa extract_coords_prod.mmpbsa')
     with open('extract_coords_prod.mmpbsa', 'r') as file:
         lines = file.readlines()
     for i, line in enumerate(lines):
@@ -351,24 +366,26 @@ def mod_prod(new_nstlim):
             lines[i] = f"STOP                  {frames_evaluated}\n"
     with open('binding_energy_prod_mod.mmpbsa', 'w') as file:
         file.writelines(lines)
-    
+
     os.system("rm prod.in binding_energy_prod.mmpbsa extract_coords_prod.mmpbsa")
+
 
 def count_residues_in_chain(pdb_file_path):
     warnings.simplefilter('ignore')
     structure = PDB.PDBParser().get_structure("pdb_structure", pdb_file_path)
-    
+
     # Initialize a set to store unique residue numbers
     unique_residues = set()
-    
+
     for model in structure:
         for chain in model:
             for residue in chain:
                 # Only consider standard amino acid residues (not water, ions, etc.)
                 if PDB.is_aa(residue):
                     unique_residues.add(residue.get_id()[1])
-    
+
     return len(unique_residues)
+
 
 def prepare_ligand(ligand_name):
     cp_in_files = f"cp {in_folder}/lig_or_pep/leap_ligand.in ."
@@ -389,10 +406,11 @@ def prepare_ligand(ligand_name):
         os.system(cmd_leap_ligand)
         if "lig.mol2" not in os.listdir("."):
             print(f"Failed with net charge {int(charge_ligand)}")
-            for i in range(1,4):
+            for i in range(1, 4):
                 charge_ligand = int(charge_ligand) - 1
                 print(f"Retrying with net charge {charge_ligand}")
-                os.system(f"antechamber -i pre_lig.mol2 -fi mol2 -o lig.mol2 -fo mol2 -dr n -at gaff2 -rn LIG -c bcc -nc {charge_ligand} -pf Y> antechamber_ligand_try{charge_ligand}.log 2> antechamber_peptide_try{charge_ligand}.err")
+                os.system(
+                    f"antechamber -i pre_lig.mol2 -fi mol2 -o lig.mol2 -fo mol2 -dr n -at gaff2 -rn LIG -c bcc -nc {charge_ligand} -pf Y> antechamber_ligand_try{charge_ligand}.log 2> antechamber_peptide_try{charge_ligand}.err")
                 if "lig.mol2" in os.listdir("."):
                     cmd_frcmod = "parmchk2 -i lig.mol2 -o lig.frcmod -f mol2 -s gaff2 -a Y"
                     os.system(cmd_frcmod)
@@ -402,10 +420,11 @@ def prepare_ligand(ligand_name):
                     break
             if "lig.mol2" not in os.listdir("."):
                 print(f"Failed with net charge {int(charge_ligand)}")
-                for i in range(1,4):
+                for i in range(1, 4):
                     charge_ligand = int(charge_ligand) + 1
                     print(f"Retrying with net charge {charge_ligand}")
-                    os.system(f"antechamber -i pre_lig.mol2 -fi mol2 -o lig.mol2 -fo mol2 -dr n -at gaff2 -rn LIG -c bcc -nc {charge_ligand} -pf Y> antechamber_ligand_try{charge_ligand}.log 2> antechamber_peptide_try{charge_ligand}.err")
+                    os.system(
+                        f"antechamber -i pre_lig.mol2 -fi mol2 -o lig.mol2 -fo mol2 -dr n -at gaff2 -rn LIG -c bcc -nc {charge_ligand} -pf Y> antechamber_ligand_try{charge_ligand}.log 2> antechamber_peptide_try{charge_ligand}.err")
                     if "lig.mol2" in os.listdir("."):
                         cmd_frcmod = "parmchk2 -i lig.mol2 -o lig.frcmod -f mol2 -s gaff2 -a Y"
                         os.system(cmd_frcmod)
@@ -414,12 +433,13 @@ def prepare_ligand(ligand_name):
                         print("Done")
                         break
 
+
 def prepare_peptide(peptide_name):
     format = peptide_name.split(".")[-1]
     peptide_name = peptide_name.split(".")[0]
     os.system(f"mv ../tmp/{peptide_name}.{format} .")
     os.system(f'mv {peptide_name}.{format} og_lig.pdb')
-    os.system(f"pdb4amber -i og_lig.pdb -y --most-populous --add-missing-atoms --reduce -d -o pre_lig.pdb")
+    os.system(f"pdb4amber -i og_lig.pdb --no-conect -y --most-populous --add-missing-atoms --reduce -d -o pre_lig.pdb")
     peptide_length = count_residues_in_chain("pre_lig.pdb")
     print("Peptide length: ", peptide_length)
     if peptide_length > 10:
@@ -444,10 +464,11 @@ def prepare_peptide(peptide_name):
             print("Done")
         if "lig.mol2" not in os.listdir("."):
             print(f"Failed with net charge {int(charge_ligand)}")
-            for i in range(1,4):
+            for i in range(1, 4):
                 charge_ligand = int(charge_ligand) - 1
                 print(f"Retrying with net charge {charge_ligand}")
-                os.system(f"antechamber -i pre_lig.mol2 -fi mol2 -o lig.mol2 -fo mol2 -dr n -at gaff2 -rn PEP -c bcc -nc {charge_ligand} -pf Y> antechamber_peptide_try{charge_ligand}.log 2> antechamber_peptide_try{charge_ligand}.err")
+                os.system(
+                    f"antechamber -i pre_lig.mol2 -fi mol2 -o lig.mol2 -fo mol2 -dr n -at gaff2 -rn PEP -c bcc -nc {charge_ligand} -pf Y> antechamber_peptide_try{charge_ligand}.log 2> antechamber_peptide_try{charge_ligand}.err")
                 if "lig.mol2" in os.listdir("."):
                     cmd_frcmod = "parmchk2 -i lig.mol2 -o lig.frcmod -f mol2 -s gaff2 -a Y"
                     os.system(cmd_frcmod)
@@ -457,10 +478,11 @@ def prepare_peptide(peptide_name):
                     break
             if "lig.mol2" not in os.listdir("."):
                 print(f"Failed with net charge {int(charge_ligand)}")
-                for i in range(1,4):
+                for i in range(1, 4):
                     charge_ligand = int(charge_ligand) + 1
                     print(f"Retrying with net charge {charge_ligand}")
-                    os.system(f"antechamber -i pre_lig.mol2 -fi mol2 -o lig.mol2 -fo mol2 -dr n -at gaff2 -rn PEP -c bcc -nc {charge_ligand} -pf Y> antechamber_peptide_try{charge_ligand}.log 2> antechamber_peptide_try{charge_ligand}.err")
+                    os.system(
+                        f"antechamber -i pre_lig.mol2 -fi mol2 -o lig.mol2 -fo mol2 -dr n -at gaff2 -rn PEP -c bcc -nc {charge_ligand} -pf Y> antechamber_peptide_try{charge_ligand}.log 2> antechamber_peptide_try{charge_ligand}.err")
                     if "lig.mol2" in os.listdir("."):
                         cmd_frcmod = "parmchk2 -i lig.mol2 -o lig.frcmod -f mol2 -s gaff2 -a Y"
                         os.system(cmd_frcmod)
@@ -468,6 +490,7 @@ def prepare_peptide(peptide_name):
                         os.system(cmd_leap_ligand)
                         print("Done")
                         break
+
 
 def prepare_receptor(receptor_file):
     print(f'---------------------------------------\nPreparing receptor...')
@@ -485,7 +508,8 @@ def prepare_receptor(receptor_file):
     if cofactor_folder != None:
         os.system(f"cp {in_folder}/cofactor/leap_cofactor.in .")
         if os.path.isdir(cofactor_folder):
-            os.system(f"cp {cofactor_folder}/{prefix_cofactor}{receptor_name}.sdf .")
+            os.system(
+                f"cp {cofactor_folder}/{prefix_cofactor}{receptor_name}.sdf .")
             os.system(f"mv {prefix_cofactor}{receptor_name}.sdf cofactor.sdf")
         else:
             cofactor_file = cofactor_folder
@@ -502,6 +526,7 @@ def prepare_receptor(receptor_file):
         cmd_leap_ligand = "/opt/biology/amber20/bin/tleap -s -f leap_cofactor.in > leap_cofactor.out"
         os.system(cmd_leap_ligand)
         print('Done')
+
 
 def ligand_functions(ligand_name):
     os.chdir(session_dir)
@@ -527,7 +552,8 @@ def run_dynamics(session_dir, receptor_file, ligand_name, gpu_queue):
         os.chdir(ligand_folder)
         if ligand_type:
             if "lig.mol2" in os.listdir("."):
-                receptor_name = receptor_file.split('/')[-1].replace(".pdb", "")
+                receptor_name = receptor_file.split(
+                    '/')[-1].replace(".pdb", "")
                 receptor_folder = f"rec_{receptor_name}"
                 os.system(f"cp -r ../tmp/{receptor_folder} .")
                 os.chdir(receptor_folder)
@@ -535,12 +561,14 @@ def run_dynamics(session_dir, receptor_file, ligand_name, gpu_queue):
                 os.system(f"cp ../lig.* .")
                 if cofactor_folder != None:
                     os.system(f"cp {in_folder}/cofactor/*ligand* .")
-                    print(f'---------------------------------------\nPreparing complex with cofactor...')
+                    print(
+                        f'---------------------------------------\nPreparing complex with cofactor...')
                     cmd_leap = "/opt/biology/amber20/bin/tleap -s -f leap_commands_ligand_cofactor_prot.in > leap_lig_cofactor_prot.out"
                     os.system(cmd_leap)
                     print('Done')
                 if cofactor_folder == None:
-                    print(f'---------------------------------------\nPreparing complex...')
+                    print(
+                        f'---------------------------------------\nPreparing complex...')
                     cmd_leap = "/opt/biology/amber20/bin/tleap -s -f leap_commands_ligand_prot.in > leap_lig_prot.out"
                     os.system(cmd_leap)
                     print('Done')
@@ -554,7 +582,8 @@ def run_dynamics(session_dir, receptor_file, ligand_name, gpu_queue):
         if peptide_type:
             peptide_length = count_residues_in_chain("pre_lig.pdb")
             if peptide_length > 10:
-                receptor_name = receptor_file.split('/')[-1].replace(".pdb", "")
+                receptor_name = receptor_file.split(
+                    '/')[-1].replace(".pdb", "")
                 receptor_folder = f"rec_{receptor_name}"
                 os.system(f"cp -r ../tmp/{receptor_folder} .")
                 os.chdir(receptor_folder)
@@ -562,18 +591,21 @@ def run_dynamics(session_dir, receptor_file, ligand_name, gpu_queue):
                 os.system(f"cp ../lig.* .")
                 if cofactor_folder != None:
                     os.system(f"cp {in_folder}/cofactor/*peptide* .")
-                    print(f'---------------------------------------\nPreparing complex with cofactor...')
+                    print(
+                        f'---------------------------------------\nPreparing complex with cofactor...')
                     cmd_leap = "/opt/biology/amber20/bin/tleap -s -f leap_commands_peptide_cofactor_prot.in > leap_pep_cofactor_prot.out"
                     os.system(cmd_leap)
                     print('Done')
                 if cofactor_folder == None:
-                    print(f'---------------------------------------\nPreparing complex...')
+                    print(
+                        f'---------------------------------------\nPreparing complex...')
                     cmd_leap = "/opt/biology/amber20/bin/tleap -s -f leap_commands_peptide_prot.in > leap_pep_prot.out"
                     os.system(cmd_leap)
                     print('Done')
             if peptide_length <= 10:
                 if "lig.mol2" in os.listdir("."):
-                    receptor_name = receptor_file.split('/')[-1].replace(".pdb", "")
+                    receptor_name = receptor_file.split(
+                        '/')[-1].replace(".pdb", "")
                     receptor_folder = f"rec_{receptor_name}"
                     os.system(f"cp -r ../tmp/{receptor_folder} .")
                     os.chdir(receptor_folder)
@@ -581,12 +613,14 @@ def run_dynamics(session_dir, receptor_file, ligand_name, gpu_queue):
                     os.system(f"cp ../lig.* .")
                     if cofactor_folder != None:
                         os.system(f"cp {in_folder}/cofactor/*ligand* .")
-                        print(f'---------------------------------------\nPreparing complex with cofactor...')
+                        print(
+                            f'---------------------------------------\nPreparing complex with cofactor...')
                         cmd_leap = "/opt/biology/amber20/bin/tleap -s -f leap_commands_ligand_cofactor_prot.in > leap_lig_cofactor_prot.out"
                         os.system(cmd_leap)
                         print('Done')
                     if cofactor_folder == None:
-                        print(f'---------------------------------------\nPreparing complex...')
+                        print(
+                            f'---------------------------------------\nPreparing complex...')
                         cmd_leap = "/opt/biology/amber20/bin/tleap -s -f leap_commands_ligand_prot.in > leap_lig_prot.out"
                         os.system(cmd_leap)
                         print('Done')
@@ -601,15 +635,19 @@ def run_dynamics(session_dir, receptor_file, ligand_name, gpu_queue):
             os.system(parminfo_complex)
             molinfo = "/opt/biology/amber20/bin/cpptraj complex-no_water.prmtop -i molinfo.in > molinfo_complex.out"
             os.system(molinfo)
-            residues_number_prot = data_seeker("molinfo_complex.out", "residues", "residues_number_prot")
-            residues_number = data_seeker("parminfo_complex.out", "residues", "residues_number")
+            residues_number_prot = data_seeker(
+                "molinfo_complex.out", "residues", "residues_number_prot")
+            residues_number = data_seeker(
+                "parminfo_complex.out", "residues", "residues_number")
             mod_in_file(residues_number, residues_number_prot)
             parminfo = "/opt/biology/amber20/bin/cpptraj complex_solvated.prmtop -i parminfo.in > parminfo_solvated.out"
             os.system(parminfo)
-            atoms_number = data_seeker("parminfo_solvated.out", "Topology", "atoms_number")
+            atoms_number = data_seeker(
+                "parminfo_solvated.out", "Topology", "atoms_number")
             atom_extract_info = "/opt/biology/amber20/bin/cpptraj complex-no_water.prmtop -i molinfo.in > molinfo_no_water.out"
             os.system(atom_extract_info)
-            atoms_data = data_seeker("molinfo_no_water.out", "None", "atoms_data")
+            atoms_data = data_seeker(
+                "molinfo_no_water.out", "None", "atoms_data")
             atoms_data.append(atoms_number)
             extract_coords_mod("extract_coords.mmpbsa", atoms_data)
             if not os.path.exists("coords"):
@@ -626,14 +664,16 @@ def run_dynamics(session_dir, receptor_file, ligand_name, gpu_queue):
             extrac_coords_cmd = f'$AMBERHOME/bin/mm_pbsa.pl extract_coords_mod.mmpbsa 1> extract_coords.log 2>extract_coords.err'
             os.system(extrac_coords_cmd)
             print('Done')
-            print(f'---------------------------------------\nCalculating binding affinity')
+            print(
+                f'---------------------------------------\nCalculating binding affinity')
             bindingE_cmd = f'$AMBERHOME/bin/mm_pbsa.pl binding_energy.mmpbsa > binding_energy.log'
             os.system(bindingE_cmd)
             print('Done')
             os.system("mv min_complex.pdb FAR_results")
             os.system(f'mv snapshot* FAR_results')
-            os.system(f'mv coords extract_coords.err extract_coords.log binding_energy.log FAR_results')
-            #Here starts prod commands
+            os.system(
+                f'mv coords extract_coords.err extract_coords.log binding_energy.log FAR_results')
+            # Here starts prod commands
             if prod:
                 if not os.path.exists("coords"):
                     os.mkdir("coords")
@@ -641,15 +681,18 @@ def run_dynamics(session_dir, receptor_file, ligand_name, gpu_queue):
                 extract_coords_mod("extract_coords_prod.mmpbsa", atoms_data)
                 mod_in_file_prod(residues_number, atoms_data)
                 mod_prod(time_prod)
-                print(f'---------------------------------------\nRunning molecular dynamics...')
+                print(
+                    f'---------------------------------------\nRunning molecular dynamics...')
                 tmux_send_run2 = f'python3 run_commands.py commands.txt'
                 os.system(tmux_send_run2)
                 convert_trj = f'/opt/biology/amber20/bin/cpptraj -p complex_solvated.prmtop -y prod.mdcrd -x prod.trj'
                 os.system(convert_trj)
                 remove_wat_cmd = f'/opt/biology/amber20/bin/cpptraj -i remove_water_prod_mdcrd_mod.in'
                 os.system(remove_wat_cmd)
-                os.system(f'/opt/biology/amber20/bin/cpptraj -i measure_prod_ligand_rmsd_mod.in')
-                os.system(f'/opt/biology/amber20/bin/cpptraj -i measure_prod_ligand_rmsf_mod.in')
+                os.system(
+                    f'/opt/biology/amber20/bin/cpptraj -i measure_prod_ligand_rmsd_mod.in')
+                os.system(
+                    f'/opt/biology/amber20/bin/cpptraj -i measure_prod_ligand_rmsf_mod.in')
                 extrac_coords_cmd = f'$AMBERHOME/bin/mm_pbsa.pl extract_coords_prod_mod.mmpbsa 1> extract_coords_prod.log 2>extract_coords_prod.err'
                 os.system(extrac_coords_cmd)
                 bindingE_cmd = f'$AMBERHOME/bin/mm_pbsa.pl binding_energy_prod_mod.mmpbsa > binding_energy_prod.log'
@@ -681,6 +724,7 @@ def extract_SDF(ligand):
                 ligand_name_list.append(output_file)
     return ligand_name_list
 
+
 def table_generator():
     energy_patch_list = []
     failed_duo = []
@@ -696,26 +740,27 @@ def table_generator():
                         with open(file) as io:
                             line = io.readlines()[-1].strip()
                             energy_value = line.split()[1]
-                            energy_patch = float(energy_value), ligand_name, receptor_name
+                            energy_patch = float(
+                                energy_value), ligand_name, receptor_name
                             energy_patch_list.append(energy_patch)
                     except FileNotFoundError:
-                        failed_duo.append((f'{ligand_name}\t{receptor_name}\n'))
+                        failed_duo.append(
+                            (f'{ligand_name}\t{receptor_name}\n'))
             else:
                 failed_duo.append((f'{ligand_name}\t<sin receptor>\n'))
 
-    if "failed_ligands" in os.listdir(".") or len(failed_duo)>=1:
+    if "failed_ligands" in os.listdir(".") or len(failed_duo) >= 1:
         with open("failed_files_FAR.txt", "w") as outf:
             outf.write("ligand_name\treceptor_name\n")
             if "failed_ligands" in os.listdir(".") and len(os.listdir("failed_ligands")) >= 1:
                 for ligand_folder in next(os.walk("failed_ligands"))[1]:
                     ligand_name = ligand_folder.replace("run_", "")
                     outf.write(f'{ligand_name}\tall_receptors\n')
-            if len(failed_duo)>=1:
+            if len(failed_duo) >= 1:
                 for failed in failed_duo:
                     outf.write(failed)
 
-
-    sorted_list = sorted(energy_patch_list,key=itemgetter(0))
+    sorted_list = sorted(energy_patch_list, key=itemgetter(0))
     if len(sorted_list) >= 1:
         with open("FAR_results.tsv", "w") as outfile:
             outfile.write('AffinityBindingPred(kcal/mol)\tLigand\tReceptor\n')
@@ -725,6 +770,7 @@ def table_generator():
                 receptor_name = binding_data[2]
                 output = f'{energy_value}\t{ligand_name}\t{receptor_name}\n'
                 outfile.write(output)
+
 
 def table_generator_prod():
     energy_patch_list = []
@@ -741,28 +787,28 @@ def table_generator_prod():
                         with open(file) as io:
                             line = io.readlines()[-1].strip()
                             energy_value = line.split()[1]
-                            energy_patch = float(energy_value), ligand_name, receptor_name
+                            energy_patch = float(
+                                energy_value), ligand_name, receptor_name
                             energy_patch_list.append(energy_patch)
                     except FileNotFoundError:
-                        failed_duo.append((f'{ligand_name}\t{receptor_name}\n'))
+                        failed_duo.append(
+                            (f'{ligand_name}\t{receptor_name}\n'))
             else:
                 # Si no hay carpetas de receptor, agrega a la lista de fallo
                 failed_duo.append((f'{ligand_name}\t<sin receptor>\n'))
 
-
-    if "failed_ligands" in os.listdir(".") or len(failed_duo)>=1:
+    if "failed_ligands" in os.listdir(".") or len(failed_duo) >= 1:
         with open("failed_files_prod.txt", "w") as outf:
             outf.write("ligand_name\treceptor_name\n")
             if "failed_ligands" in os.listdir(".") and len(os.listdir("failed_ligands")) >= 1:
                 for ligand_folder in next(os.walk("failed_ligands"))[1]:
                     ligand_name = ligand_folder.replace("run_", "")
                     outf.write(f'{ligand_name}\tall_receptors\n')
-            if len(failed_duo)>=1:
+            if len(failed_duo) >= 1:
                 for failed in failed_duo:
                     outf.write(failed)
 
-
-    sorted_list = sorted(energy_patch_list,key=itemgetter(0))
+    sorted_list = sorted(energy_patch_list, key=itemgetter(0))
     if len(sorted_list) >= 1:
         with open("MMPBSA_results.tsv", "w") as outfile:
             outfile.write('AffinityBindingPred(kcal/mol)\tLigand\tReceptor\n')
@@ -773,8 +819,9 @@ def table_generator_prod():
                 output = f'{energy_value}\t{ligand_name}\t{receptor_name}\n'
                 outfile.write(output)
 
+
 if __name__ == '__main__':
-    gpu_ids = list(range(range_GPU_S,range_GPU_E))
+    gpu_ids = list(range(range_GPU_S, range_GPU_E))
     if not prod_only:
         try:
             if os.path.isdir(ligand):
@@ -782,53 +829,61 @@ if __name__ == '__main__':
                 for file in os.listdir(ligand):
                     format = file.split(".")[-1]
                     os.system(f'cp {ligand}/{file} tmp/')
-                    if format =="pdb":
+                    if format == "pdb":
                         ligand_name_list.append(file)
                     if format == "sdf":
                         ligand_name_sdf_list = extract_SDF(file)
                         for ligand_name_sdf in ligand_name_sdf_list:
                             ligand_name_list.append(ligand_name_sdf)
-                        os.system(f"mv tmp/{file} tmp/{file.replace('.sdf', '')}_input.sdf")
-                
+                        os.system(
+                            f"mv tmp/{file} tmp/{file.replace('.sdf', '')}_input.sdf")
+
             else:
                 os.system(f'cp {ligand} tmp/')
                 ligand = ligand.split("/")[-1]
                 format = ligand.split(".")[-1]
                 if format == "sdf":
                     ligand_name_list = extract_SDF(ligand)
-                    os.system(f"mv tmp/{ligand} tmp/{ligand.replace('.sdf', '')}_input.sdf")
-                if format =="pdb":
+                    os.system(
+                        f"mv tmp/{ligand} tmp/{ligand.replace('.sdf', '')}_input.sdf")
+                if format == "pdb":
                     ligand_name_list = [ligand]
 
             if os.path.isdir(receptor):
                 receptor_list = os.listdir(receptor)
-                receptor_list = [f'{receptor}/{receptor_file}' for receptor_file in receptor_list]
+                receptor_list = [
+                    f'{receptor}/{receptor_file}' for receptor_file in receptor_list]
                 with multiprocessing.Pool(processes=binding_threads) as pool:
                     pool.map(prepare_receptor, receptor_list)
                 with Manager() as manager:
                     gpu_queue = manager.Queue()  # Crear una cola para manejar las GPUs disponibles
                     for gpu_id in gpu_ids:
-                        gpu_queue.put(gpu_id)  # Poblar la cola con los IDs de GPU disponibles
-                    args = [(session_dir, receptor_file, ligand_name, gpu_queue) for receptor_file in receptor_list[0] for ligand_name in ligand_name_list]
+                        # Poblar la cola con los IDs de GPU disponibles
+                        gpu_queue.put(gpu_id)
+                    args = [(session_dir, receptor_file, ligand_name, gpu_queue)
+                            for receptor_file in receptor_list[0] for ligand_name in ligand_name_list]
                     with multiprocessing.Pool(processes=threads) as pool:
                         pool.starmap(run_dynamics, args)
-                    args = [(session_dir, receptor_file, ligand_name, gpu_queue) for receptor_file in receptor_list[1:] for ligand_name in ligand_name_list]
+                    args = [(session_dir, receptor_file, ligand_name, gpu_queue)
+                            for receptor_file in receptor_list[1:] for ligand_name in ligand_name_list]
                     with multiprocessing.Pool(processes=threads) as pool:
                         pool.starmap(run_dynamics, args)
-
 
             else:
 
                 os.system(f'cp {receptor} {session_name}/tmp')
                 receptor_list = [receptor.split("/")[-1]]
-                receptor_list = [f'{session_name}/tmp/{receptor_file}' for receptor_file in receptor_list]
+                receptor_list = [
+                    f'{session_name}/tmp/{receptor_file}' for receptor_file in receptor_list]
                 with multiprocessing.Pool(processes=binding_threads) as pool:
                     pool.map(prepare_receptor, receptor_list)
                 with Manager() as manager:
                     gpu_queue = manager.Queue()  # Crear una cola para manejar las GPUs disponibles
                     for gpu_id in gpu_ids:
-                        gpu_queue.put(gpu_id)  # Poblar la cola con los IDs de GPU disponibles
-                    args = [(session_dir, receptor_list[0], ligand_name, gpu_queue) for ligand_name in ligand_name_list]
+                        # Poblar la cola con los IDs de GPU disponibles
+                        gpu_queue.put(gpu_id)
+                    args = [(session_dir, receptor_list[0], ligand_name, gpu_queue)
+                            for ligand_name in ligand_name_list]
                     with multiprocessing.Pool(processes=threads) as pool:
                         pool.starmap(run_dynamics, args)
         except:
@@ -842,8 +897,10 @@ if __name__ == '__main__':
 
     if prod_only:
         os.environ['CUDA_VISIBLE_DEVICES'] = str(range_GPU_S)
-        atoms_number = data_seeker("parminfo_solvated.out", "Topology", "atoms_number")
-        residues_number = data_seeker("parminfo_complex.out", "residues", "residues_number")
+        atoms_number = data_seeker(
+            "parminfo_solvated.out", "Topology", "atoms_number")
+        residues_number = data_seeker(
+            "parminfo_complex.out", "residues", "residues_number")
         atoms_data = data_seeker("molinfo_no_water.out", "None", "atoms_data")
         atoms_data.append(atoms_number)
         os.system(f"cp {in_folder}/prod/* .")
